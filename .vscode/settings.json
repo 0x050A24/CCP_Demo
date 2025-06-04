@@ -1,0 +1,22 @@
+{
+    "VsCodeTaskButtons.showCounter": true,
+    "VsCodeTaskButtons.tasks": [
+        {
+            "label": "$(wrench) Configure",
+            "task": "CMake Configure",
+            "tooltip": "Run CMake Configure Task"
+        },
+        {
+            "label": "$(tools) Build",
+            "task": "Build",
+            "tooltip": "Run Build Task"
+        },
+        {
+            "label": "$(chip) Flash",
+            "task": "Flash",
+            "tooltip": "Run Flash Task"
+        },
+    ],
+    "cortex-debug.variableUseNaturalFormat": true,
+    "C_Cpp.default.compilerPath": "E:/Arm_Toolchain/arm-none-eabi/14.2rel1/bin/arm-none-eabi-gcc.exe"
+}

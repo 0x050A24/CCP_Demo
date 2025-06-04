@@ -1,0 +1,25 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "cwd": "${workspaceFolder}",
+      "executable": "./build/${workspaceFolderBasename}.elf",
+      "name": "Debug with JLink",
+      "request": "launch",
+      "type": "cortex-debug",
+      "device": "GD32F303VCT6",
+      "runToEntryPoint": "main",
+      "showDevDebugOutput": "none",
+      "servertype": "jlink",
+      "serverArgs": [
+        "-speed",
+        "12000"
+      ],
+      "svdFile": "./Hardware_Configure/GD32F30x_CL.svd",
+      "liveWatch": {
+        "enabled": true,
+        "samplesPerSecond": 4
+      }
+    },
+  ]
+}

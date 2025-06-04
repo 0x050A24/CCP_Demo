@@ -1,0 +1,71 @@
+{
+    "folders": [
+        {
+            "path": "."
+        }
+    ],
+    "settings": {
+        "python.terminal.activateEnvironment": true,
+        "clangd.enabled": false,
+        "clangd.arguments": [
+            "--compile-commands-dir=build",
+            "--query-driver=**/arm-none-eabi-*",
+            "--all-scopes-completion",
+            "--header-insertion=never",
+            "--log=verbose"
+        ],
+        "C_Cpp.intelliSenseEngine": "default",
+        "C_Cpp.default.compileCommands": "${workspaceFolder}/build/compile_commands.json",
+        "VsCodeTaskButtons.showCounter": true,
+        "VsCodeTaskButtons.tasks": [
+            {
+                "label": "$(wrench) Configure",
+                "task": "CMake Configure",
+                "tooltip": "Run CMake Configure Task"
+            },
+            {
+                "label": "$(tools) Build",
+                "task": "Build",
+                "tooltip": "Run Build Task"
+            },
+            {
+                "label": "$(chip) Flash",
+                "task": "Flash",
+                "tooltip": "Run Flash Task"
+            },
+        ],
+        "terminal.integrated.profiles.windows": {
+            "bash (MSYS2)": {
+                "path": "E:\\msys64\\usr\bin\\bash.exe",
+                "args": [
+                    "--login",
+                    "-i"
+                ],
+                "env": {
+                    "CHERE_INVOKING": "1",
+                    "MSYSTEM": "MINGW64"
+                }
+            }
+        },
+        "terminal.integrated.defaultProfile.windows": "PowerShell",
+        "cortex-debug.variableUseNaturalFormat": true,
+        "files.associations": {
+            "systick.h": "c",
+            "gd32f30x.h": "c",
+            "system_gd32f30x.h": "c",
+            "gd32f30x_libopt.h": "c",
+            "gd32f30x_usart.h": "c",
+            "usart.h": "c",
+            "stdint.h": "c",
+            "cstdint": "c",
+            "unistd.h": "c",
+            "cstring": "c",
+            "xutility": "c",
+            "string.h": "c",
+            "main.h": "c",
+            "can.h": "c",
+            "ccp.h": "c",
+            "ccp_interface.h": "c"
+        },
+    }
+}
