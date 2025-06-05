@@ -6,8 +6,13 @@
 uint16_t test_var1 = 0;
 int16_t test_var2 = 0;
 float_t float_var = 0.0f;
+uint32_t pulse = 0;
+uint16_t register_count = 0;
 static uint32_t dwt_start_cycle = 0;
-void trigger_daq_every_5ms(void);
+extern GPIO_InitTypeDef GPIOD_InitStruct;
+static uint32_t last_daq_ms = 0;
+
+void daq_trigger(void);
 void nvic_config(void);
 void dwt_init(void);
 /*!
@@ -19,34 +24,25 @@ void dwt_init(void);
 int main(void)
 {
     dwt_init();
+    GPIO_Init(GPIOD, &GPIOD_InitStruct);
     systick_config();
     /* initialize Serial port */
     USART_Init(&husart0);
     /* configure NVIC */
     nvic_config();
-    /* initialize CAN and CAN filter */
+
+    /* initialize Timer */
+    TIM0_PWM_Init();
+
+    /* initialize CAN and CCP */
     CAN_Init(&hcan0);
     ccpInit();
 
-    /* enable CAN receive FIFO0 not empty interrupt */
-    can_interrupt_enable(hcan0.Instance, CAN_INTEN_RFNEIE0);
-
     while (1)
     {
-        float_var += 0.1f;
-        test_var2--;
-        test_var1++;
-
         process_can_rx_buffer();
-
-        trigger_daq_every_5ms();
-
-        uint32_t CallBack_cycles = DWT->CYCCNT;
+        daq_trigger();
         ccpSendCallBack();
-        uint32_t CallBack_elapsed_cycles = DWT->CYCCNT - CallBack_cycles;
-        printf("\r\nCallBack_elapsed_cycles is %ld\n", CallBack_elapsed_cycles);
-        printf("DWT->CYCCNT = %lu\r\n", DWT->CYCCNT);
-        // printf("DWT->CTRL = 0x%08lX\n", DWT->CTRL);
     }
 }
 
@@ -59,6 +55,7 @@ int main(void)
 void nvic_config(void)
 {
     /* configure CAN0 NVIC */
+    nvic_irq_enable(TIMER0_Channel_IRQn, 0, 0);
     nvic_irq_enable(USBD_LP_CAN0_RX0_IRQn, 1, 0);
 }
 
@@ -67,15 +64,13 @@ void dwt_init(void)
     CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk; // 使能DWT模块
     DWT->CYCCNT = 0;                                // 清零
     DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;            // 启用CYCCNT
-
-    printf("DEMCR = 0x%08lX, DWT->CTRL = 0x%08lX\n", CoreDebug->DEMCR, DWT->CTRL);
 }
 
-void trigger_daq_every_5ms(void)
+void daq_trigger(void)
 {
-    if ((DWT->CYCCNT - dwt_start_cycle) >= DAQ_INTERVAL_CYCLES)
+    if ((systick_ms - last_daq_ms) >= 5)
     {
-        dwt_start_cycle = DWT->CYCCNT;
+        last_daq_ms = systick_ms;
         ccpDaq(0);
     }
 }

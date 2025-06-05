@@ -21,18 +21,11 @@ void process_can_rx_buffer(void)
     while (can_buffer_tail != can_buffer_head)
     {
         can_receive_message_struct *msg = &can_buffer[can_buffer_tail];
-
         uint32_t id = (msg->rx_ff == CAN_FF_STANDARD) ? msg->rx_sfid : msg->rx_efid;
-        
         if (id == CCP_CRO_ID && msg->rx_dlen == 8)
         {
-            
-            uint32_t ccpCommand_cycles = DWT->CYCCNT;
             ccpCommand(msg->rx_data);
-            uint32_t ccpCommand_elapsed_cycles = DWT->CYCCNT - ccpCommand_cycles;
-            printf("\r\nccpCommand_elapsed_cycles is %ld\n", ccpCommand_elapsed_cycles);
         }
-
         can_buffer_tail = (can_buffer_tail + 1) % CAN_BUFFER_SIZE;
     }
 }

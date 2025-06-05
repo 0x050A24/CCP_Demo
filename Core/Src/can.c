@@ -114,6 +114,8 @@ CAN_StatusTypeDef CAN_Init(CAN_HandleTypeDef *hcan)
     cf.filter_enable = ENABLE;
     can_filter_init(&cf);
 
+    can_interrupt_enable(hcan0.Instance, CAN_INTEN_RFNEIE0);
+    
     return CAN_OK;
 }
 

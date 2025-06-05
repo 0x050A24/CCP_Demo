@@ -37,6 +37,8 @@ OF SUCH DAMAGE.
 
 #include <stdint.h>
 
+extern volatile uint16_t systick_ms;  /*!< systick counter in milliseconds */
+
 /* configure systick */
 void systick_config(void);
 /* delay a time in milliseconds */

@@ -15,7 +15,7 @@
         "-speed",
         "12000"
       ],
-      "svdFile": "./Hardware_Configure/GD32F30x_CL.svd",
+      "svdFile": "./Hardware_Configure/GD32F30x_HD.svd",
       "liveWatch": {
         "enabled": true,
         "samplesPerSecond": 4

@@ -1,7 +1,8 @@
 #include "gd32f30x.h"
 #include "systick.h"
 
- static volatile uint32_t delay;
+volatile uint16_t systick_ms = 0;
+static volatile uint32_t delay;
 
 /*!
     \brief      configure systick
@@ -18,7 +19,7 @@ void systick_config(void)
         }
     }
     /* configure the systick handler priority */
-    NVIC_SetPriority(SysTick_IRQn, 0x03U);
+    NVIC_SetPriority(SysTick_IRQn, 0x09U);
 }
 
 /*!

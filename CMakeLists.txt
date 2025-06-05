@@ -50,6 +50,7 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     Core/Src/usart.c
     Core/Src/gpio.c
     Core/Src/can.c
+    Core/Src/tim0.c
     # Add user sources here
 )
 

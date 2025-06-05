@@ -58,4 +58,6 @@ void PendSV_Handler(void);
 void SysTick_Handler(void);
 
 void USBD_LP_CAN0_RX0_IRQHandler(void);
+
+void TIMER0_Channel_IRQHandler(void);
 #endif /* GD32F30X_IT_H */
