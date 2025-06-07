@@ -13,7 +13,7 @@ set(Include_Dirs
     ${CMAKE_SOURCE_DIR}/Core/Inc
     ${CMAKE_SOURCE_DIR}/Drivers/GD32F30x_standard_peripheral/Include
     ${CMAKE_SOURCE_DIR}/Drivers/CMSIS/GD/GD32F30x/Include
-    ${CMAKE_SOURCE_DIR}/Drivers/CMSIS/
+    ${CMAKE_SOURCE_DIR}/Drivers/CMSIS/Core/Include
     ${CMAKE_SOURCE_DIR}/Drivers/CCP/Inc
 )
 

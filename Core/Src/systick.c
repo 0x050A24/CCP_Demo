@@ -3,6 +3,9 @@
 
 volatile uint16_t systick_ms = 0;
 static volatile uint32_t delay;
+uint32_t AHB_CLK;
+uint32_t APB1_CLK;
+uint32_t APB2_CLK;
 
 /*!
     \brief      configure systick
@@ -20,6 +23,9 @@ void systick_config(void)
     }
     /* configure the systick handler priority */
     NVIC_SetPriority(SysTick_IRQn, 0x09U);
+    AHB_CLK = rcu_clock_freq_get(CK_AHB);
+    APB1_CLK = rcu_clock_freq_get(CK_APB1);
+    APB2_CLK = rcu_clock_freq_get(CK_APB2);
 }
 
 /*!

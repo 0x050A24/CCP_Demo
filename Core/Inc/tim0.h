@@ -3,6 +3,8 @@
 
 #include "gd32f30x.h"
 
+extern float PWM_ARR;
+
 void TIM0_PWM_Init(void);
-uint8_t calculate_deadtime_value(uint32_t deadtime_ns, uint32_t timer_clk_hz);
+
 #endif /* _TIM0_H_ */

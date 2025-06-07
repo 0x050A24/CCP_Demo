@@ -65,7 +65,13 @@
             "main.h": "c",
             "can.h": "c",
             "ccp.h": "c",
-            "ccp_interface.h": "c"
+            "ccp_interface.h": "c",
+            "gd32f30x_rcu.h": "c",
+            "cfloat": "c",
+            "format": "c",
+            "algorithm": "c",
+            "xiosbase": "c",
+            "math.h": "c"
         },
     }
 }

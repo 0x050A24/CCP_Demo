@@ -34,41 +34,47 @@ message("Build type: " ${CMAKE_BUILD_TYPE})
 enable_language(C ASM)
 
 # Create an executable object type
-add_executable(${CMAKE_PROJECT_NAME})
+add_executable(${PROJECT_NAME})
 
-# Add STM32CubeMX generated sources
-add_subdirectory(cmake/GigaFirmware)
-
-# Link directories setup
-target_link_directories(${CMAKE_PROJECT_NAME} PRIVATE
-
-    # Add user defined library search paths
+target_compile_definitions(${PROJECT_NAME} PRIVATE
+    ARM_MATH_CM4
+    __FPU_PRESENT=1
 )
 
-# Add sources to executable
-target_sources(${CMAKE_PROJECT_NAME} PRIVATE
+add_subdirectory(cmake/GigaFirmware)
+
+# 手动添加使用的 CMSIS-DSP 文件（例如只用 sin/cos）
+add_library(CMSISDSP STATIC
+    ${CMAKE_SOURCE_DIR}/Drivers/CMSIS/CMSIS-DSP/Source/FastMathFunctions/arm_sin_f32.c
+    ${CMAKE_SOURCE_DIR}/Drivers/CMSIS/CMSIS-DSP/Source/FastMathFunctions/arm_cos_f32.c
+    ${CMAKE_SOURCE_DIR}/Drivers/CMSIS/CMSIS-DSP/Source/CommonTables/arm_common_tables.c
+)
+
+target_include_directories(CMSISDSP PUBLIC
+    ${CMAKE_SOURCE_DIR}/Drivers/CMSIS/CMSIS-DSP/Include
+    ${CMAKE_SOURCE_DIR}/Drivers/CMSIS/Core/Include
+)
+
+target_include_directories(${PROJECT_NAME} PRIVATE
+    ${CMAKE_SOURCE_DIR}/Drivers/CMSIS/Core/Include
+    ${CMAKE_SOURCE_DIR}/Drivers/CMSIS/GD/GD32F30x/Include
+)
+
+
+target_sources(${PROJECT_NAME} PRIVATE
     Core/Src/usart.c
     Core/Src/gpio.c
     Core/Src/can.c
     Core/Src/tim0.c
-    # Add user sources here
+    Core/Src/foc.c
 )
 
-# Add include paths
-target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
-
-    # Add user defined include paths
-)
-
-# Add project symbols (macros)
-target_compile_definitions(${CMAKE_PROJECT_NAME} PRIVATE
-
-    # Add user defined symbols
-)
-
-# Add linked libraries
-target_link_libraries(${CMAKE_PROJECT_NAME}
+target_link_libraries(${PROJECT_NAME}
     GigaFirmware
+    CMSISDSP
+)
 
-    # Add user defined libraries
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+    COMMAND ${CMAKE_OBJCOPY} -O ihex $<TARGET_FILE:${PROJECT_NAME}> ${PROJECT_NAME}.hex
+    COMMENT "Generating HEX file from ELF"
 )

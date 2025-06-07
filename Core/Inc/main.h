@@ -43,4 +43,5 @@ OF SUCH DAMAGE.
 #include "math.h"
 #include "tim0.h"
 #include "gpio.h"
+#include "foc.h"
 #endif /* MAIN_H */

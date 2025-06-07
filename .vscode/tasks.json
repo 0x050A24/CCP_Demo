@@ -14,7 +14,7 @@
             "group": {
                 "kind": "build",
                 "isDefault": false
-            },
+            }
         },
         {
             "label": "CMake Build",
@@ -34,10 +34,19 @@
             }
         },
         {
-            "label": "Write A2L",
+            "label": "Generate A2L",
             "type": "shell",
-            "command": "${workspaceFolder}/tools/a2ltool.exe",
+            "options": {
+                "shell": {
+                    "executable": "cmd.exe",
+                    "args": [
+                        "/c"
+                    ]
+                }
+            },
+            "command": "",
             "args": [
+                "${workspaceFolder}/tools/a2ltool.exe",
                 "--create",
                 "--elffile",
                 "build/${workspaceFolderBasename}.elf",
@@ -46,18 +55,9 @@
                 "--a2lversion",
                 "1.5.0",
                 "--output",
-                "build/${workspaceFolderBasename}.a2l"
-            ],
-            "group": {
-                "kind": "build",
-                "isDefault": false
-            },
-        },
-        {
-            "label": "Filt A2L",
-            "type": "shell",
-            "command": "python",
-            "args": [
+                "build/${workspaceFolderBasename}.a2l",
+                "&&",
+                "python",
                 "tools/A2LFilter.py",
                 "--input",
                 "build/${workspaceFolderBasename}.a2l",
@@ -71,27 +71,25 @@
             "problemMatcher": []
         },
         {
-            "label": "Generate A2L",
-            "dependsOn": [
-                "Write A2L",
-                "Filt A2L"
-            ],
-            "dependsOrder": "sequence",
-            "group": {
-                "kind": "build",
-                "isDefault": false
-            },
-            "problemMatcher": []
-        },
-        {
             "label": "Clean ELF",
-            "type": "process",
-            "command": "powershell",
+            "type": "shell",
+            "options": {
+                "shell": {
+                    "executable": "cmd.exe",
+                    "args": [
+                        "/c"
+                    ]
+                }
+            },
+            "command": "cmd",
             "args": [
-                "-NoProfile",
-                "-Command",
-                "if (Test-Path build/${workspaceFolderBasename}.elf)",
-                " { Remove-Item -Force build/${workspaceFolderBasename}.elf}"
+                "/c",
+                "if",
+                "exist",
+                "build\\${workspaceFolderBasename}.elf",
+                "del",
+                "/f",
+                "build\\${workspaceFolderBasename}.elf"
             ],
             "problemMatcher": []
         },
@@ -100,7 +98,7 @@
             "dependsOn": [
                 "CMake Configure",
                 "CMake Build",
-                "Generate A2L",
+                "Generate A2L"
             ],
             "dependsOrder": "sequence",
             "group": {
@@ -112,22 +110,20 @@
         {
             "label": "Flash",
             "type": "shell",
-            "command": "JLink.exe",
-            "args": [
-                "-CommanderScript",
-                ".vscode/flash.jlink"
-            ],
             "options": {
+                "shell": {
+                    "executable": "cmd.exe",
+                    "args": [
+                        "/c"
+                    ]
+                },
                 "cwd": "${workspaceFolder}"
             },
+            "command": "JLink.exe -CommanderScript .vscode\\flash.jlink",
             "group": {
                 "kind": "build",
                 "isDefault": false
-            },
-            // "dependsOn": [
-            //     "Build"
-            // ],
-            // "dependsOrder": "sequence",
-        },
+            }
+        }
     ]
 }
