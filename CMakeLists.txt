@@ -43,7 +43,7 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE
 
 add_subdirectory(cmake/GigaFirmware)
 
-# 手动添加使用的 CMSIS-DSP 文件（例如只用 sin/cos）
+# 手动添加使用的 CMSIS-DSP 文件
 add_library(CMSISDSP STATIC
     ${CMAKE_SOURCE_DIR}/Drivers/CMSIS/CMSIS-DSP/Source/FastMathFunctions/arm_sin_f32.c
     ${CMAKE_SOURCE_DIR}/Drivers/CMSIS/CMSIS-DSP/Source/FastMathFunctions/arm_cos_f32.c
@@ -67,6 +67,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     Core/Src/can.c
     Core/Src/tim0.c
     Core/Src/foc.c
+    Core/Src/adc.c
 )
 
 target_link_libraries(${PROJECT_NAME}

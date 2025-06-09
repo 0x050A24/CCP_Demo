@@ -185,7 +185,7 @@ void ADC0_1_IRQHandler(void)
         // uint16_t adc_value_ch1 = (uint16_t)(ADC_IDATA1(ADC0) & 0xFFFF);
         // uint16_t adc_value_ch2 = (uint16_t)(ADC_IDATA2(ADC0) & 0xFFFF);
         // uint16_t adc_value_ch3 = (uint16_t)(ADC_IDATA3(ADC0) & 0xFFFF);
-        gpio_bit_write(GPIOD, GPIO_PIN_8, 1 - gpio_input_bit_get(GPIOD, GPIO_PIN_8)); // 切换LED状态
+        
         VF_Control(VF_Freq, VF_Vref, 24.0f, 0.0001f, PWM_ARR);                              
     }
 }

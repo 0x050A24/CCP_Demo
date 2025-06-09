@@ -205,6 +205,9 @@ void SystemInit(void)
 
     /* configure the system clock source, PLL Multiplier, AHB/APBx prescalers and Flash settings */
     system_clock_config();
+    CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk; // 使能DWT模块
+    DWT->CYCCNT = 0;                                // 清零
+    DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;            // 启用CYCCNT
 }
 /*!
     \brief      configure the system clock

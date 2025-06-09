@@ -1,5 +1,5 @@
-#ifndef GD_CAN_H
-#define GD_CAN_H
+#ifndef _CAN_H
+#define _CAN_H
 
 #define CAN_BUFFER_SIZE 8
 

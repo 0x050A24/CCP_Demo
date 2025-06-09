@@ -1,5 +1,5 @@
-#ifndef GD_USART_H
-#define GD_USART_H
+#ifndef _USART_H
+#define _USART_H
 
 #include "gd32f30x.h"
 #include <unistd.h>

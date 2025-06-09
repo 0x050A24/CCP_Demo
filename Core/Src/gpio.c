@@ -4,7 +4,7 @@
  * @brief  根据GPIOx的地址使能对应GPIO时钟
  */
 GPIO_InitTypeDef GPIOD_InitStruct = {
-    .Pin = GPIO_PIN_7 | GPIO_PIN_8,         // 例如配置GPIO_PIN_7
+    .Pin = GPIO_PIN_7 |GPIO_PIN_8 | GPIO_PIN_9,
     .Mode = GPIO_MODE_OUT_PP,  // 输出推挽模式
     .Speed = GPIO_OSPEED_2MHZ, // 输出速率2MHz
     .Alternate = 0             // 复用功能未使用
