@@ -163,29 +163,34 @@ void USBD_LP_CAN0_RX0_IRQHandler(void)
         // 缓冲区满了，可以统计丢帧数或其他处理
     }
 }
-extern uint32_t pulse;
 
-void TIMER0_Channel_IRQHandler(void)
-{
-
-    if (timer_interrupt_flag_get(TIMER0, TIMER_INT_CH3))
-    {
-        timer_interrupt_flag_clear(TIMER0, TIMER_INT_CH3);
-        adc_software_trigger_enable(ADC0, ADC_INSERTED_CHANNEL);
-    }
-}
-extern float VF_Freq;
-extern float VF_Vref;
 void ADC0_1_IRQHandler(void)
 {
     if (adc_interrupt_flag_get(ADC0, ADC_INT_FLAG_EOIC))
     {
         adc_interrupt_flag_clear(ADC0, ADC_INT_FLAG_EOIC);
-        // uint16_t adc_value_ch0 = (uint16_t)(ADC_IDATA0(ADC0) & 0xFFFF);
-        // uint16_t adc_value_ch1 = (uint16_t)(ADC_IDATA1(ADC0) & 0xFFFF);
-        // uint16_t adc_value_ch2 = (uint16_t)(ADC_IDATA2(ADC0) & 0xFFFF);
-        // uint16_t adc_value_ch3 = (uint16_t)(ADC_IDATA3(ADC0) & 0xFFFF);
-        
-        VF_Control(VF_Freq, VF_Vref, 24.0f, 0.0001f, PWM_ARR);                              
+        FOC_Main();
+    }
+}
+
+void EXTI5_9_IRQHandler(void)
+{
+    if (RESET != exti_interrupt_flag_get(EXTI_7))
+    {
+        TIMER_SWEVG(TIMER0) |= TIMER_SWEVG_BRKG;
+        STOP = 1;
+        exti_interrupt_flag_clear(EXTI_7);
+    }
+}
+
+extern Protect_Flags Protect_Flag;
+void TIMER0_BRK_IRQHandler(void)
+{
+    if (timer_interrupt_flag_get(TIMER0, TIMER_INT_FLAG_BRK)) {
+        // 清除 Break 中断标志
+        timer_interrupt_flag_clear(TIMER0, TIMER_INT_FLAG_BRK);
+
+        STOP = 1; 
+        Protect_Flag |= Hardware_Fault;
     }
 }

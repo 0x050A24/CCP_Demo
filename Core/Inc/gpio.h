@@ -31,6 +31,10 @@ typedef struct
     uint32_t Alternate; /*!< 指定选中管脚的复用功能（仅当模式为复用时有效） */
 } GPIO_InitTypeDef;
 
+extern GPIO_InitTypeDef GPIOD_InitStruct;
+extern GPIO_InitTypeDef GPIOB_InitStruct;
+
+
 void GPIO_Init(uint32_t GPIOx, GPIO_InitTypeDef *GPIO_InitStruct);
 
 #endif /* GD_GPIO_H */

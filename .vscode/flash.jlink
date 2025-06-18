@@ -1,9 +1,10 @@
-power off
+power on
 device GD32F303VCT6
 if SWD
 speed 50000
-r
-loadfile ./build/GD32F303VCT6.elf
-r
-g
+reset
+halt
+loadfile build/GD32F303VCT6.elf
+reset
+go
 exit

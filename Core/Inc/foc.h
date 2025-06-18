@@ -46,23 +46,67 @@
 
 /*       Constants      */
 #define SQRT3 1.73205080757f
+#define SQRT3_2 0.86602540378f /* √3/2 */
+#define T_Main 0.0005f         /* 2kHz */
+#define T_2Khz 0.0005f         /* 2kHz */
+#define T_10Khz 0.0001f        /* 10kHz sampling time */
 
 /*    Type Definitions   */
 typedef enum
 {
-    FOC_MODE_VF,
-    FOC_MODE_FOC
+    INIT,
+    IDLE,
+    VF_MODE,
+    IF_MODE,
+    space
 } FOC_Mode;
+
+typedef enum
+{
+    No_Protect = 0,
+    Over_Current = 1 << 0,         // 0b0001
+    Over_Maximum_Current = 1 << 1, // 0b0010
+    Over_Voltage = 1 << 2,         // 0b0100
+    Low_Voltage = 1 << 3,          // 0b1000
+    Hardware_Fault = 1 << 4,       // 0b10000
+    Over_Temperature = 1 << 5      // 0b100000
+} Protect_Flags;
 
 typedef struct
 {
-    float_t Ia, Ib, Ic; /* Phase currents */
-    float_t theta;      /* Electrical angle (rad) */
-    float_t Ud, Uq;     /* Voltage components in d-q frame */
-    float_t Vdc;        /* DC bus voltage */
-    float_t pwm_arr;    /* PWM period */
-    FOC_Mode mode;      /* Control mode */
-} FOC_Controller_t;
+    float Vref_Ud;
+    float Vref_Uq;
+    float Freq;
+} VF_Parameter_t;
+
+typedef struct
+{
+    /* data */
+    float Kp;             /* Proportional gain */
+    float Ki;             /* Integral gain */
+    float Kd;             /* Derivative gain */
+    float integral;       /* Integral term */
+    float previous_error; /* Previous error for derivative calculation */
+    float MaxOutput;      /* Maximum output limit */
+    float MinOutput;      /* Minimum output limit */
+    float output;         /* PID output value */
+    float IntegralLimit;  /* Integral limit to prevent windup */
+    float Ts;            /* Sample time */
+} PID_Controller_t;
+
+typedef struct
+{
+    float Id_ref;
+    float Iq_ref;
+    float IF_Freq;
+} IF_Parameter_t;
+
+typedef struct
+{
+    float_t theta;   /* Electrical angle (rad) */
+    float_t pwm_arr; /* PWM period */
+    FOC_Mode Mode;   // 当前控制模式
+} FOC_Parameter_t;
 
 typedef struct
 {
@@ -85,12 +129,16 @@ typedef struct
 /*======================*/
 /*    Function Protos   */
 /*======================*/
+extern uint16_t STOP;
+extern FOC_Parameter_t FOC_Parameter;
 
+void Gate_state(void);
+void FOC_Main(void);
 void ClarkeTransform(float_t Ia, float_t Ib, float_t Ic, Clarke_t *out);
 void ParkTransform(float_t Ialpha, float_t Ibeta, float_t theta, Park_t *out);
 void InvParkTransform(float_t Ud, float_t Uq, float_t theta, InvPark_t *out);
-void SVPWM_Generate(float_t Ualpha, float_t Ubeta, float_t Vdc, float_t pwm_arr);
+void SVPWM_Generate(float Ualpha, float Ubeta, float inv_Vdc, float pwm_arr);
 void Set_PWM_Duty(float_t Ta, float_t Tb, float_t Tc, float_t pwm_arr);
-void VF_Control(float freq, float vref, float vdc, float ts, float pwm_arr);
+void PID_Controller(float setpoint, float measured_value, PID_Controller_t *PID_Controller);
 
 #endif /* _FOC_H_ */

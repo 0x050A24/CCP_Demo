@@ -41,7 +41,7 @@ OF SUCH DAMAGE.
 #include "can.h"
 #include "ccp_interface.h"
 #include "math.h"
-#include "tim0.h"
+#include "tim.h"
 #include "gpio.h"
 #include "foc.h"
 #include "adc.h"

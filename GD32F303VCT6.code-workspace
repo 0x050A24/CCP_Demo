@@ -19,7 +19,7 @@
         "VsCodeTaskButtons.showCounter": true,
         "VsCodeTaskButtons.tasks": [
             {
-                "label": "$(wrench) Configure",
+                "label": "$(gear) Configure",
                 "task": "CMake Configure",
                 "tooltip": "Run CMake Configure Task"
             },
@@ -29,9 +29,19 @@
                 "tooltip": "Run Build Task"
             },
             {
+                "label": "$(wrench) CMake Build",
+                "task": "CMake Build",
+                "tooltip": "Run CMake Build Task"
+            },
+            {
                 "label": "$(chip) Flash",
                 "task": "Flash",
                 "tooltip": "Run Flash Task"
+            },
+            {
+                "label": "$(pencil) A2L",
+                "task": "Generate A2L",
+                "tooltip": "Run Generate A2L Task"
             },
         ],
         "terminal.integrated.profiles.windows": {
@@ -49,29 +59,40 @@
         },
         "terminal.integrated.defaultProfile.windows": "PowerShell",
         "cortex-debug.variableUseNaturalFormat": true,
+        "better-comments.multilineComments": true,
+        "better-comments.tags": [
+            {
+                "tag": "!",
+                "color": "#FF2D00"
+            },
+            {
+                "tag": "<",
+                "color": "#3498DB"
+            },
+            {
+                "tag": "//",
+                "color": "#474747",
+                "strikethrough": true
+            },
+            {
+                "tag": ">",
+                "color": "#FF8C00"
+            },
+            {
+                "tag": "-",
+                "color": "#98C379"
+            }
+        ],
         "files.associations": {
-            "systick.h": "c",
-            "gd32f30x.h": "c",
-            "system_gd32f30x.h": "c",
-            "gd32f30x_libopt.h": "c",
-            "gd32f30x_usart.h": "c",
-            "usart.h": "c",
-            "stdint.h": "c",
+            "foc.h": "c",
+            "compare": "c",
             "cstdint": "c",
-            "unistd.h": "c",
-            "cstring": "c",
-            "xutility": "c",
-            "string.h": "c",
-            "main.h": "c",
-            "can.h": "c",
-            "ccp.h": "c",
-            "ccp_interface.h": "c",
-            "gd32f30x_rcu.h": "c",
-            "cfloat": "c",
-            "format": "c",
-            "algorithm": "c",
-            "xiosbase": "c",
-            "math.h": "c"
+            "arm_math.h": "c",
+            "basic_math_functions.h": "c",
+            "bayes_functions.h": "c",
+            "svm_functions.h": "c",
+            "filtering_functions.h": "c",
+            "transform_functions.h": "c"
         },
     }
 }

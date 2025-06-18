@@ -10,6 +10,13 @@ GPIO_InitTypeDef GPIOD_InitStruct = {
     .Alternate = 0             // 复用功能未使用
 };
 
+GPIO_InitTypeDef GPIOB_InitStruct = {
+    .Pin = GPIO_PIN_7,
+    .Mode = GPIO_MODE_IPU,  // 上拉输入模式
+    .Speed = GPIO_OSPEED_50MHZ, // 
+    .Alternate = 0             // 复用功能未使用
+};
+
 static void GPIO_Clock_Enable(uint32_t GPIOx)
 {
     if (GPIOx == GPIOA)
