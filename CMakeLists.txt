@@ -65,7 +65,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     Core/Src/usart.c
     Core/Src/gpio.c
     Core/Src/can.c
-    Core/Src/tim0.c
+    Core/Src/tim.c
     Core/Src/foc.c
     Core/Src/adc.c
 )
