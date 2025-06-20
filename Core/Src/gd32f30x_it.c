@@ -190,7 +190,7 @@ void TIMER0_BRK_IRQHandler(void)
         // 清除 Break 中断标志
         timer_interrupt_flag_clear(TIMER0, TIMER_INT_FLAG_BRK);
 
-        STOP = 1; 
-        Protect_Flag |= Hardware_Fault;
+        // STOP = 1; 
+        // Protect_Flag |= Hardware_Fault;
     }
 }

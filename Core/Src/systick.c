@@ -34,7 +34,7 @@ void systick_config(void)
     \param[out] none
     \retval     none
 */
-void delay_1ms(uint32_t count)
+void delay_ms(uint32_t count)
 {
     delay = count;
 
@@ -53,4 +53,17 @@ void delay_decrement(void)
     if (0U != delay){
         delay--;
     }
+}
+/*!
+    \brief      delay a time in microseconds
+    \param[in]  count: count in microseconds
+    \param[out] none
+    \retval     none
+*/
+void delay_us(uint32_t us)
+{
+    uint32_t cycles = us * (SystemCoreClock / 1000000);
+    uint32_t start = DWT->CYCCNT;
+
+    while ((DWT->CYCCNT - start) < cycles);
 }

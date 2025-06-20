@@ -1,4 +1,4 @@
-power on
+power off
 device GD32F303VCT6
 if SWD
 speed 50000

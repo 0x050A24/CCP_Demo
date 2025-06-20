@@ -92,7 +92,9 @@
             "bayes_functions.h": "c",
             "svm_functions.h": "c",
             "filtering_functions.h": "c",
-            "transform_functions.h": "c"
+            "transform_functions.h": "c",
+            "main.h": "c",
+            "spi.h": "c"
         },
     }
 }

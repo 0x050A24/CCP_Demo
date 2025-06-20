@@ -87,7 +87,7 @@ void adc_config_injected(void)
 
     /* 10. 启用 ADC */
     adc_enable(ADC0);
-    delay_1ms(1);
+    delay_ms(1);
     adc_calibration_enable(ADC0);
 
     nvic_irq_enable(ADC0_1_IRQn, 2, 0);

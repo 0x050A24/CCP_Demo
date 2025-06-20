@@ -6,7 +6,8 @@
 volatile uint32_t DWT_Count = 0;
 
 uint16_t pin = 0;
-
+uint16_t receive = 0;
+uint16_t transmit = 0;
 
 static uint32_t last_daq_ms = 0;
 
@@ -27,7 +28,7 @@ int main(void)
 {
     // DWT initialized at the end of SystemInit();
     systick_config();
-    delay_1ms(100); // wait incase of download
+    delay_ms(100); // wait incase of download
     /* initialize GPIO */
     GPIO_Init(GPIOD, &GPIOD_InitStruct);
     GPIO_Init(GPIOB, &GPIOB_InitStruct);
@@ -42,6 +43,8 @@ int main(void)
     /* initialize ADC */
     adc_config_injected();
     /* initialize CAN and CCP */
+    SPI_Init();
+    AD2S1210_Init();
     CAN_Init(&hcan0);
     ccpInit();
     relay_init();
@@ -53,7 +56,8 @@ int main(void)
         ccpSendCallBack();
         Gate_state();
         ADC_Read_Regular();
-        pin = gpio_input_bit_get(GPIOE, GPIO_PIN_15);
+        // pin = gpio_input_bit_get(GPIOE, GPIO_PIN_15);
+
 
 
     }

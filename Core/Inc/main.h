@@ -45,4 +45,5 @@ OF SUCH DAMAGE.
 #include "gpio.h"
 #include "foc.h"
 #include "adc.h"
+#include "spi.h"
 #endif /* MAIN_H */
