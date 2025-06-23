@@ -90,6 +90,4 @@ void adc_config_injected(void)
     delay_ms(1);
     adc_calibration_enable(ADC0);
 
-    nvic_irq_enable(ADC0_1_IRQn, 2, 0);
-    adc_interrupt_enable(ADC0, ADC_INT_EOIC);
 }

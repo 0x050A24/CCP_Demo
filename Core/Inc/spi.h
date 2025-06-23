@@ -24,11 +24,14 @@
 #define CONTROL_REG 0x92
 #define ERROR_REG 0xFF
 
-
+extern uint16_t Resolver_Data;
+extern uint8_t Resolver_Fault;
+extern ErrStatus AD2S1210_Config;
+extern ErrStatus AD2S1210_Ready;
 
 void SPI_Init(void);
 void AD2S1210_Init(void);
-uint16_t AD2S1210_Read(void);
+uint8_t AD2S1210_Read(void);
 uint8_t spi_send_receive_byte(uint32_t spi_periph, uint8_t byte);
 
 #endif

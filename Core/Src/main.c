@@ -1,17 +1,13 @@
 
 #include "main.h"
 
-#define DAQ_INTERVAL_CYCLES 600000 // 5ms * 120MHz
-
 volatile uint32_t DWT_Count = 0;
 
 uint16_t pin = 0;
 uint16_t receive = 0;
 uint16_t transmit = 0;
 
-static uint32_t last_daq_ms = 0;
-
-void adc_config_injected(void);
+void DWT_Init(void);
 void daq_trigger(void);
 void nvic_config(void);
 void EXIT_Config(void);
@@ -26,16 +22,16 @@ void relay_init(void);
 */
 int main(void)
 {
-    // DWT initialized at the end of SystemInit();
     systick_config();
-    delay_ms(100); // wait incase of download
+    DWT_Init(); // delay_us based on DWT
+    /* initialize Serial port */
+    USART_Init(&husart0);
     /* initialize GPIO */
     GPIO_Init(GPIOD, &GPIOD_InitStruct);
     GPIO_Init(GPIOB, &GPIOB_InitStruct);
-    /* initialize Serial port */
-    USART_Init(&husart0);
-    /* configure NVIC */
-    nvic_config();
+    /* initialize AD2S1210 */
+    SPI_Init();
+    AD2S1210_Init();
     /* initialize Timer */
     TIM0_PWM_Init();
     /* initialize external interrupt */
@@ -43,12 +39,12 @@ int main(void)
     /* initialize ADC */
     adc_config_injected();
     /* initialize CAN and CCP */
-    SPI_Init();
-    AD2S1210_Init();
     CAN_Init(&hcan0);
     ccpInit();
+    /* open fan and relay */
     relay_init();
-
+    /* configure NVIC and enable interrupt */
+    nvic_config();
     while (1)
     {
         process_can_rx_buffer();
@@ -56,10 +52,8 @@ int main(void)
         ccpSendCallBack();
         Gate_state();
         ADC_Read_Regular();
-        // pin = gpio_input_bit_get(GPIOE, GPIO_PIN_15);
-
-
-
+        //pin = gpio_input_bit_get(GPIOE, GPIO_PIN_15);
+        DWT_Count = DWT->CYCCNT; // 读取DWT计数器
     }
 }
 
@@ -73,11 +67,15 @@ void nvic_config(void)
 {
     nvic_irq_enable(TIMER0_BRK_IRQn, 0, 0);
     nvic_irq_enable(EXTI5_9_IRQn, 1U, 0U);
+    nvic_irq_enable(ADC0_1_IRQn, 2, 0);
     nvic_irq_enable(USBD_LP_CAN0_RX0_IRQn, 5, 0);
+    /* SysTick_IRQn 009U */
+    adc_interrupt_enable(ADC0, ADC_INT_EOIC);
 }
 
 void daq_trigger(void)
 {
+    static uint32_t last_daq_ms = 0;
     if ((systick_ms - last_daq_ms) >= 5)
     {
         last_daq_ms = systick_ms;
@@ -96,4 +94,11 @@ void EXIT_Config(void)
     gpio_exti_source_select(GPIO_PORT_SOURCE_GPIOB, GPIO_PIN_SOURCE_7);
     exti_init(EXTI_7, EXTI_INTERRUPT, EXTI_TRIG_FALLING);
     exti_interrupt_flag_clear(EXTI_7);
+}
+
+void DWT_Init(void)
+{
+    CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk; // 使能DWT模块
+    DWT->CYCCNT = 0;                                // 清零
+    DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;            // 启用CYCCNT
 }

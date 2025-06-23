@@ -60,6 +60,7 @@ void delay_decrement(void)
     \param[out] none
     \retval     none
 */
+
 void delay_us(uint32_t us)
 {
     uint32_t cycles = us * (SystemCoreClock / 1000000);

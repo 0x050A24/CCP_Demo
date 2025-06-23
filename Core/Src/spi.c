@@ -1,17 +1,19 @@
 #include "spi.h"
 #include "main.h"
 
-uint8_t EXC_Freq = 0x28; // 10kHz;
-uint8_t Control_Data = 0x7D; // 0x7D for 14bit Resolution, 16bit EncoderResolution
-ErrStatus AD2S1210_Ready = SUCCESS;
+uint16_t Resolver_Data = 0;
+uint8_t Resolver_Fault = 0;
+ErrStatus AD2S1210_Config = ERROR;
+ErrStatus AD2S1210_Ready = ERROR;
 
 void SPI_Init(void)
 {
     spi_parameter_struct spi_init_struct;
-
     /* SPI2 use CK_APB1(60M) */
     rcu_periph_clock_enable(RCU_GPIOB);
     rcu_periph_clock_enable(RCU_SPI2);
+    rcu_periph_clock_enable(RCU_AF);
+    gpio_pin_remap_config(GPIO_SWJ_SWDPENABLE_REMAP, ENABLE);  //! Must release JTAG pin !//
 
     /* 配置 SPI2_SCK(PB3), SPI2_MOSI(PB5) 为推挽输出 */
     gpio_init(GPIOB, GPIO_MODE_AF_PP, GPIO_OSPEED_50MHZ, GPIO_PIN_3 | GPIO_PIN_5);
@@ -30,8 +32,8 @@ void SPI_Init(void)
 
     /* 启用 SPI2 */
     spi_enable(SPI2);
+
 }
-extern uint16_t receive;
 
 void AD2S1210_Init(void)
 {
@@ -41,6 +43,7 @@ void AD2S1210_Init(void)
     gpio_init(RESETPORT, GPIO_MODE_OUT_PP, GPIO_OSPEED_50MHZ, RESETPin);
     gpio_init(WRPORT, GPIO_MODE_OUT_PP, GPIO_OSPEED_50MHZ, WRPin);
     gpio_init(SAMPLEPORT, GPIO_MODE_OUT_PP, GPIO_OSPEED_50MHZ, SAMPLEPin);
+
     gpio_bit_set(A0PORT, A0Pin);
     gpio_bit_set(A1PORT, A1Pin);
     gpio_bit_set(WRPORT, WRPin);
@@ -48,77 +51,99 @@ void AD2S1210_Init(void)
     gpio_bit_set(RESETPORT, RESETPin);
 
     //< Power up>//
-    delay_ms(50);
+    delay_us(1000);
 
     //< Reset >//
     gpio_bit_reset(RESETPORT, RESETPin);
-    delay_ms(50);
+    delay_us(50000);
     gpio_bit_set(RESETPORT, RESETPin);
 
     //< Enter configuration mode >//
     gpio_bit_set(A0PORT, A0Pin);
     gpio_bit_set(A1PORT, A1Pin);
 
-    delay_us(1);
+    delay_us(10);
 
     //- Write Excitation -//
     gpio_bit_reset(WRPORT, WRPin); // WR must goes low before sending data
     spi_send_receive_byte(SPI2, EXCITE_REG); // Send EXCITE_REG
     gpio_bit_set(WRPORT, WRPin); // WR must goes high after sending data
 
-    delay_us(1);
+    delay_us(10);
 
     gpio_bit_reset(WRPORT, WRPin); // Reset WR
     spi_send_receive_byte(SPI2, Excitation_Frequency); // Send Data Excitation frequency
     gpio_bit_set(WRPORT, WRPin); // Set WR
 
-    delay_us(1);
+    delay_us(10);
 
     //- Read back while writing Control Register -//
     gpio_bit_reset(WRPORT, WRPin); // Reset WR
+
     if(Excitation_Frequency == spi_send_receive_byte(SPI2, CONTROL_REG))
     {
-        AD2S1210_Ready &= SUCCESS;
+        AD2S1210_Config = SUCCESS;
     }else{
-        AD2S1210_Ready &= ERROR;
+        AD2S1210_Config &= ERROR;
     }
     gpio_bit_set(WRPORT, WRPin); // Set WR
 
-    delay_us(1);
+    delay_us(10);
 
     gpio_bit_reset(WRPORT, WRPin); // Reset WR
     spi_send_receive_byte(SPI2, Control_Register_Data); // Send Data RES and EnRES
     gpio_bit_set(WRPORT, WRPin); // Set WR
 
-    delay_us(1);
+    delay_us(10);
 
     //! Use the ERROR Register to read back Data and exit !//
     gpio_bit_reset(WRPORT, WRPin); // Reset WR
     if(Control_Register_Data == spi_send_receive_byte(SPI2, ERROR_REG))
     {
-        AD2S1210_Ready &= SUCCESS;
+        AD2S1210_Config &= SUCCESS;
     }else{
-        AD2S1210_Ready &= ERROR;
+        AD2S1210_Config &= ERROR;
     }
     gpio_bit_set(WRPORT, WRPin); // Set WR
 
-    delay_us(1);
+    delay_us(10);
 
     //< Exit configuration mode >//
     gpio_bit_reset(A0PORT, A0Pin);
     gpio_bit_reset(A1PORT, A1Pin);
 
+    if(AD2S1210_Config == SUCCESS)
+    {
+        AD2S1210_Ready = SUCCESS;
+    }
 }
 
-// uint16_t AD2S1210_Read(void)
-// {
+uint8_t AD2S1210_Read(void)
+{
+    gpio_bit_reset(SAMPLEPORT, SAMPLEPin); // Reset SAMPLE
+    delay_us(1);
+    gpio_bit_reset(WRPORT, WRPin); // Reset WR
 
-// }
+    uint8_t Hbyte = spi_send_receive_byte(SPI2, 0x00);
+    uint8_t Lbyte = spi_send_receive_byte(SPI2, 0x00);
+    uint8_t Fault = spi_send_receive_byte(SPI2, 0x00);
+
+    Resolver_Data = (Hbyte << 8) | Lbyte; // Combine high and low byte
+
+    gpio_bit_set(WRPORT, WRPin); // Set WR
+    gpio_bit_set(SAMPLEPORT, SAMPLEPin); // Set SAMPLE
+
+    return Fault;
+}
 
 uint8_t spi_send_receive_byte(uint32_t spi_periph, uint8_t byte)
 {
     /* 等待发送缓冲区空 */
     while (RESET == spi_i2s_flag_get(spi_periph, SPI_FLAG_TBE));
+
+    gpio_bit_reset(GPIOD, GPIO_PIN_7);  // 设置 PC13 为高电平表示进入
+    while (RESET == spi_i2s_flag_get(spi_periph, SPI_FLAG_TBE));
+    gpio_bit_set(GPIOD, GPIO_PIN_7); //
 
     /* 发送字节 */
     spi_i2s_data_transmit(spi_periph, byte);

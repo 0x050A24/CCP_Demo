@@ -19,11 +19,18 @@ static inline void Current_Protect(void);
 static inline void Get_Theta(float freq);
 static inline void Parameter_Init(void);
 
+extern uint16_t receive;
+
 void FOC_Main(void)
 {
+    
     ADC_Read_Injection();
     Current_Protect();
     Gate_state();
+    if (AD2S1210_Ready == SUCCESS)
+    {
+         Resolver_Fault = AD2S1210_Read();
+    }
 
     switch (FOC.Mode)
     {
@@ -33,8 +40,8 @@ void FOC_Main(void)
         if (Udc > 200.0f || inv_Udc < 0.005f) // 200V
         {
             ADC_Calibration();
-            FOC.Mode = IDLE;
         }
+        FOC.Mode = IDLE;
         break;
     }
     case IDLE:
@@ -57,7 +64,7 @@ void FOC_Main(void)
 
         PID_Controller(IF.Id_ref, Park.Id, &Id_PID);
         PID_Controller(IF.Iq_ref, Park.Iq, &Iq_PID);
-        
+
         InvParkTransform(Id_PID.output, Iq_PID.output, FOC.theta, &Inv_Park);
         SVPWM_Generate(Inv_Park.Ualpha, Inv_Park.Ubeta, inv_Udc, FOC.pwm_arr);
         break;
@@ -85,7 +92,7 @@ void Gate_state(void)
     else
     {
         // STOP = 0，尝试恢复
-        //if (gpio_input_bit_get(GPIOE, GPIO_PIN_15) == RESET) 
+        // if (gpio_input_bit_get(GPIOE, GPIO_PIN_15) == RESET)
         {
             timer_primary_output_config(TIMER0, ENABLE); // 恢复 MOE
             STOP = 0;
@@ -141,7 +148,7 @@ void Parameter_Init(void)
     Id_PID.integral = 0.0f;
     Id_PID.output = 0.0f;
     Id_PID.Ts = T_2Khz;
-    
+
     Iq_PID.Kp = 0.1f;
     Iq_PID.Ki = 0.01f;
     Iq_PID.Kd = 0.0f;
@@ -162,7 +169,7 @@ void PID_Controller(float setpoint, float measured_value, PID_Controller_t *PID_
     float integral = PID_Controller->integral;
     float derivative = difference - PID_Controller->previous_error;
 
-    if(STOP == 1)
+    if (STOP == 1)
     {
         difference = 0.0f;
         integral = 0.0f;
