@@ -61,10 +61,4 @@ void delay_decrement(void)
     \retval     none
 */
 
-void delay_us(uint32_t us)
-{
-    uint32_t cycles = us * (SystemCoreClock / 1000000);
-    uint32_t start = DWT->CYCCNT;
 
-    while ((DWT->CYCCNT - start) < cycles);
-}

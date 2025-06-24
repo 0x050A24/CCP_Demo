@@ -51,34 +51,37 @@ void AD2S1210_Init(void)
     gpio_bit_set(RESETPORT, RESETPin);
 
     //< Power up>//
-    delay_us(1000);
+    delay_ms(100);
 
     //< Reset >//
     gpio_bit_reset(RESETPORT, RESETPin);
-    delay_us(50000);
+    delay_ms(500);
     gpio_bit_set(RESETPORT, RESETPin);
 
     //< Enter configuration mode >//
     gpio_bit_set(A0PORT, A0Pin);
     gpio_bit_set(A1PORT, A1Pin);
 
-    delay_us(10);
+    delay_us(5);
 
     //- Write Excitation -//
     gpio_bit_reset(WRPORT, WRPin); // WR must goes low before sending data
+    delay_us(5);
     spi_send_receive_byte(SPI2, EXCITE_REG); // Send EXCITE_REG
     gpio_bit_set(WRPORT, WRPin); // WR must goes high after sending data
 
-    delay_us(10);
+    delay_us(5);
 
     gpio_bit_reset(WRPORT, WRPin); // Reset WR
+    delay_us(5);
     spi_send_receive_byte(SPI2, Excitation_Frequency); // Send Data Excitation frequency
     gpio_bit_set(WRPORT, WRPin); // Set WR
 
-    delay_us(10);
+    delay_us(5);
 
     //- Read back while writing Control Register -//
     gpio_bit_reset(WRPORT, WRPin); // Reset WR
+    delay_us(5);
 
     if(Excitation_Frequency == spi_send_receive_byte(SPI2, CONTROL_REG))
     {
@@ -88,16 +91,18 @@ void AD2S1210_Init(void)
     }
     gpio_bit_set(WRPORT, WRPin); // Set WR
 
-    delay_us(10);
+    delay_us(5);
 
     gpio_bit_reset(WRPORT, WRPin); // Reset WR
+    delay_us(5);
     spi_send_receive_byte(SPI2, Control_Register_Data); // Send Data RES and EnRES
     gpio_bit_set(WRPORT, WRPin); // Set WR
 
-    delay_us(10);
+    delay_us(5);
 
     //! Use the ERROR Register to read back Data and exit !//
     gpio_bit_reset(WRPORT, WRPin); // Reset WR
+    delay_us(5);
     if(Control_Register_Data == spi_send_receive_byte(SPI2, ERROR_REG))
     {
         AD2S1210_Config &= SUCCESS;
@@ -106,7 +111,7 @@ void AD2S1210_Init(void)
     }
     gpio_bit_set(WRPORT, WRPin); // Set WR
 
-    delay_us(10);
+    delay_us(5);
 
     //< Exit configuration mode >//
     gpio_bit_reset(A0PORT, A0Pin);

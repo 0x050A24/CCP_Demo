@@ -7,5 +7,6 @@ extern float PWM_ARR;
 
 void TIM0_PWM_Init(void);
 
+void TIM1_Init(void);
 
 #endif /* _TIM0_H_ */

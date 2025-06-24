@@ -33,6 +33,7 @@ typedef struct
 
 extern GPIO_InitTypeDef GPIOD_InitStruct;
 extern GPIO_InitTypeDef GPIOB_InitStruct;
+extern GPIO_InitTypeDef GPIOE_InitStruct;
 
 
 void GPIO_Init(uint32_t GPIOx, GPIO_InitTypeDef *GPIO_InitStruct);

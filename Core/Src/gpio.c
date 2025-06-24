@@ -17,6 +17,13 @@ GPIO_InitTypeDef GPIOB_InitStruct = {
     .Alternate = 0             // 复用功能未使用
 };
 
+GPIO_InitTypeDef GPIOE_InitStruct = {
+    .Pin = GPIO_PIN_7 | GPIO_PIN_15,
+    .Mode = GPIO_MODE_IN_FLOATING,  //
+    .Speed = GPIO_OSPEED_50MHZ, // 
+    .Alternate = 0             // 复用功能未使用
+};
+
 static void GPIO_Clock_Enable(uint32_t GPIOx)
 {
     if (GPIOx == GPIOA)

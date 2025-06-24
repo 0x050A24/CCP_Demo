@@ -41,6 +41,7 @@ void FOC_Main(void)
         {
             ADC_Calibration();
         }
+        
         FOC.Mode = IDLE;
         break;
     }
@@ -73,6 +74,7 @@ void FOC_Main(void)
     {
         // 其他模式处理
         timer_interrupt_enable(TIMER0, TIMER_INT_BRK); // 启用BRK中断
+        FOC.Mode = IDLE;
         break;
     }
     }
@@ -106,8 +108,8 @@ void Gate_state(void)
 
 void Current_Protect(void)
 {
-    if ((Ia > 0.9 * I_Max || Ia < -0.9 * I_Max) ||
-        (Ib > 0.9 * I_Max || Ib < -0.9 * I_Max) ||
+    //if ((Ia > 0.9 * I_Max || Ia < -0.9 * I_Max) ||
+    if (  (Ib > 0.9 * I_Max || Ib < -0.9 * I_Max) ||
         (Ic > 0.9 * I_Max || Ic < -0.9 * I_Max))
     {
         uint16_t Current_Count = 0;
@@ -205,9 +207,10 @@ void PID_Controller(float setpoint, float measured_value, PID_Controller_t *PID_
 
 void ClarkeTransform(float_t Ia, float_t Ib, float_t Ic, Clarke_t *out)
 {
+    float Ia_ = -(Ib + Ic);
 #if (defined(TWO_PHASE_CURRENT_SENSING))
-    out->Ialpha = Ia;
-    out->Ibeta = 0.57735026919f * (Ia + 2.0f * Ib); // 0.57735026919f 1/√3
+    out->Ialpha = Ia_;
+    out->Ibeta = 0.57735026919f * (Ia_ + 2.0f * Ib); // 0.57735026919f 1/√3
 #elif (defined(THREE_PHASE_CURRENT_SENSING))
     out->Ialpha = 0.66666666667f * Ia - 0.33333333333f * (Ib + Ic);
     out->Ibeta = 0.57735026919f * (Ib - Ic); // 0.57735026919f 1/√3

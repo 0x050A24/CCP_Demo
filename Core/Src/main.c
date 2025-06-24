@@ -2,6 +2,7 @@
 #include "main.h"
 
 volatile uint32_t DWT_Count = 0;
+volatile uint32_t TIMER1_Count = 0;
 
 uint16_t pin = 0;
 uint16_t receive = 0;
@@ -23,17 +24,21 @@ void relay_init(void);
 int main(void)
 {
     systick_config();
-    DWT_Init(); // delay_us based on DWT
+    TIM1_Init();
+    //DWT_Init(); // delay_us based on DWT
     /* initialize Serial port */
     USART_Init(&husart0);
     /* initialize GPIO */
     GPIO_Init(GPIOD, &GPIOD_InitStruct);
     GPIO_Init(GPIOB, &GPIOB_InitStruct);
+    GPIO_Init(GPIOE, &GPIOE_InitStruct);
+
     /* initialize AD2S1210 */
     SPI_Init();
     AD2S1210_Init();
     /* initialize Timer */
     TIM0_PWM_Init();
+    
     /* initialize external interrupt */
     EXIT_Config();
     /* initialize ADC */
@@ -52,8 +57,13 @@ int main(void)
         ccpSendCallBack();
         Gate_state();
         ADC_Read_Regular();
-        //pin = gpio_input_bit_get(GPIOE, GPIO_PIN_15);
-        DWT_Count = DWT->CYCCNT; // 读取DWT计数器
+        pin = gpio_input_bit_get(GPIOE, GPIO_PIN_7);
+
+        //DWT_Count = DWT->CYCCNT; // 读取DWT计数器
+        TIMER1_Count = TIMER_CNT(TIMER1);
+        
+
+
     }
 }
 

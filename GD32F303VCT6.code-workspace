@@ -94,7 +94,8 @@
             "filtering_functions.h": "c",
             "transform_functions.h": "c",
             "main.h": "c",
-            "spi.h": "c"
+            "spi.h": "c",
+            "gd32f30x.h": "c"
         },
     }
 }

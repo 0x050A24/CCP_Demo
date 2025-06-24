@@ -17,7 +17,7 @@
 /* Current sensing phase setting */
 #ifndef TWO_PHASE_CURRENT_SENSING
 #ifndef THREE_PHASE_CURRENT_SENSING
-#define THREE_PHASE_CURRENT_SENSING /* Define here */
+#define TWO_PHASE_CURRENT_SENSING /* Define here */
 #endif
 #endif
 

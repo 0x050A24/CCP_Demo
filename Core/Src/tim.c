@@ -80,6 +80,28 @@ void TIM0_PWM_Init(void)
     PWM_ARR = (float)(TIMER_CAR(TIMER0) + 1);
 }
 
+void TIM1_Init(void)
+{
+    // 使能定时器时钟
+    rcu_periph_clock_enable(RCU_TIMER1);
+    
+    timer_parameter_struct timer_initpara;
+    timer_struct_para_init(&timer_initpara);
+    timer_initpara.prescaler = 5;
+    timer_initpara.alignedmode = TIMER_COUNTER_EDGE;
+    timer_initpara.counterdirection = TIMER_COUNTER_UP; 
+    timer_initpara.period = 10000 - 1;
+    timer_initpara.clockdivision = TIMER_CKDIV_DIV1;
+    timer_initpara.repetitioncounter = 0; //
+    timer_init(TIMER1, &timer_initpara);
+
+    // 可选 ARR shadow register
+    timer_auto_reload_shadow_enable(TIMER1);
+
+    // 启动定时器
+    timer_enable(TIMER1);
+}
+
 static inline uint8_t calculate_deadtime_value(uint32_t deadtime_ns, uint32_t timer_clk_hz)
 {
     float t_dts = 1e9f / timer_clk_hz; // ns
