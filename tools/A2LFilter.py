@@ -11,15 +11,41 @@ def read_file(path):
         return f.readlines()
 
 
+def _strip_dynamic_lines(lines):
+    # 去除首行时间戳
+    lines = [line.rstrip() for line in lines]  # 去除所有尾部空白
+    if lines and re.match(r"/\*\s*Auto-generated:.*\*/", lines[0]):
+        lines = lines[1:]
+    # 去除末尾所有空行
+    while lines and lines[-1].strip() == "":
+        lines.pop()
+    return lines
+
+
 def write_file(path, lines):
-    if os.path.exists(path):
-        with open(path, "r", encoding="utf-8") as f:
-            if f.readlines() == lines:
-                print(f"[INFO] No changes: {path}")
-                return
-    with open(path, "w", encoding="utf-8") as f:
+    new_lines_cleaned = _strip_dynamic_lines(lines)
+    last_path = path + ".last"
+
+    content_changed = True
+    if os.path.exists(last_path):
+        with open(last_path, "r", encoding="utf-8") as f:
+            last_lines = f.readlines()
+        last_lines_cleaned = _strip_dynamic_lines(last_lines)
+        if last_lines_cleaned == new_lines_cleaned:
+            content_changed = False
+
+    # 不论如何都写入，保持文件带脚本改动
+    with open(path, "w", encoding="utf-8", newline='\n') as f:
         f.writelines(lines)
-    print(f"[INFO] Generate: {path}")
+
+    # 更新.last
+    with open(last_path, "w", encoding="utf-8", newline='\n') as f:
+        f.writelines(lines)
+
+    if content_changed:
+        print(f"[INFO] Generate: {path}")
+    else:
+        print(f"Contents already match: {path}")
 
 
 def parse_blocks(lines):

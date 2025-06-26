@@ -17,7 +17,7 @@
 /* Current sensing phase setting */
 #ifndef TWO_PHASE_CURRENT_SENSING
 #ifndef THREE_PHASE_CURRENT_SENSING
-#define TWO_PHASE_CURRENT_SENSING /* Define here */
+#define THREE_PHASE_CURRENT_SENSING /* Define here */
 #endif
 #endif
 
@@ -48,8 +48,9 @@
 #define SQRT3 1.73205080757f
 #define SQRT3_2 0.86602540378f /* √3/2 */
 #define T_Main 0.0005f         /* 2kHz */
-#define T_2Khz 0.0005f         /* 2kHz */
-#define T_10Khz 0.0001f        /* 10kHz sampling time */
+#define T_2kHz 0.0005f         /* 2kHz */
+#define T_10kHz 0.0001f        /* 10kHz sampling time */
+#define f_2kHz 2000.0f         /* 2kHz */
 
 /*    Type Definitions   */
 typedef enum
@@ -58,6 +59,8 @@ typedef enum
     IDLE,
     VF_MODE,
     IF_MODE,
+    Speed_Mode,
+    EXIT,
     space
 } FOC_Mode;
 
@@ -74,9 +77,21 @@ typedef enum
 
 typedef struct
 {
+    float Rs;
+    float Ld;
+    float Lq;
+    float Flux;
+    float Pn;
+    float Resolver_Pn;
+    float inv_MotorPn;
+} Motor_Parameter_t;
+
+typedef struct
+{
     float Vref_Ud;
     float Vref_Uq;
     float Freq;
+    float Theta;
 } VF_Parameter_t;
 
 typedef struct
@@ -99,11 +114,14 @@ typedef struct
     float Id_ref;
     float Iq_ref;
     float IF_Freq;
+    float Theta;
+    ControlStatus Resolver_State;
 } IF_Parameter_t;
 
 typedef struct
 {
     float_t theta;   /* Electrical angle (rad) */
+    float_t Speed;  /* Speed (rpm) */
     float_t pwm_arr; /* PWM period */
     FOC_Mode Mode;   // 当前控制模式
 } FOC_Parameter_t;

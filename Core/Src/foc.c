@@ -4,44 +4,54 @@
 uint16_t STOP = 1;
 
 volatile Protect_Flags Protect_Flag;
+Motor_Parameter_t Motor;
 FOC_Parameter_t FOC;
 VF_Parameter_t VF;
 IF_Parameter_t IF;
 PID_Controller_t Id_PID;
 PID_Controller_t Iq_PID;
+PID_Controller_t Speed_PID;
 InvPark_t Inv_Park;
 Clarke_t Clarke;
 Park_t Park;
 
 float I_Max = 10.0f;
+float theta_mech = 0.0f;
+float theta_elec = 0.0f;
+float theta_factor = 0.0f; // Resolver to mechanic angle conversion factor
+
+
+float Resolver_Offset = 0.0f;
+
+float Speed_Ref = 0.0f;
 
 static inline void Current_Protect(void);
-static inline void Get_Theta(float freq);
+static inline float Get_Theta(float Freq, float Theta);
 static inline void Parameter_Init(void);
+static inline void Resolver(void);
+static inline void Speed_Compute(void);
 
 extern uint16_t receive;
 
 void FOC_Main(void)
 {
-    
+
     ADC_Read_Injection();
     Current_Protect();
     Gate_state();
-    if (AD2S1210_Ready == SUCCESS)
-    {
-         Resolver_Fault = AD2S1210_Read();
-    }
-
+    Resolver();
+    Speed_Compute();
     switch (FOC.Mode)
     {
     case INIT:
     {
         Parameter_Init();
-        if (Udc > 200.0f || inv_Udc < 0.005f) // 200V
+        if (Udc > 200.0f) // 200V
         {
+            timer_interrupt_enable(TIMER0, TIMER_INT_BRK); // 启用BRK中断
             ADC_Calibration();
         }
-        
+
         FOC.Mode = IDLE;
         break;
     }
@@ -52,28 +62,60 @@ void FOC_Main(void)
     }
     case VF_MODE:
     {
-        Get_Theta(VF.Freq);
-        InvParkTransform(VF.Vref_Ud, VF.Vref_Uq, FOC.theta, &Inv_Park);
+        VF.Theta = Get_Theta(VF.Freq, VF.Theta);
+        InvParkTransform(VF.Vref_Ud, VF.Vref_Uq, VF.Theta, &Inv_Park);
         SVPWM_Generate(Inv_Park.Ualpha, Inv_Park.Ubeta, inv_Udc, FOC.pwm_arr);
         break;
     }
     case IF_MODE:
     {
         ClarkeTransform(Ia, Ib, Ic, &Clarke);
-        Get_Theta(IF.IF_Freq);
-        ParkTransform(Clarke.Ialpha, Clarke.Ibeta, FOC.theta, &Park);
+        if (IF.Resolver_State == ENABLE)
+        {
+            IF.Theta = FOC.theta;
+        }
+        else
+        {
+            IF.Theta = Get_Theta(IF.IF_Freq, IF.Theta);
+        }
+        ParkTransform(Clarke.Ialpha, Clarke.Ibeta, IF.Theta, &Park);
 
         PID_Controller(IF.Id_ref, Park.Id, &Id_PID);
         PID_Controller(IF.Iq_ref, Park.Iq, &Iq_PID);
+
+        InvParkTransform(Id_PID.output, Iq_PID.output, IF.Theta, &Inv_Park);
+        SVPWM_Generate(Inv_Park.Ualpha, Inv_Park.Ubeta, inv_Udc, FOC.pwm_arr);
+        break;
+    }
+    case Speed_Mode:
+    {
+        ClarkeTransform(Ia, Ib, Ic, &Clarke);
+        ParkTransform(Clarke.Ialpha, Clarke.Ibeta, FOC.theta, &Park);
+        static uint16_t Speed_Count = 0;
+        Speed_Count++;
+        if (Speed_Count > 9)
+        {
+            Speed_Count = 0;
+            PID_Controller(Speed_Ref, FOC.Speed, &Speed_PID);
+        }
+        
+        PID_Controller(0.0f, Park.Id, &Id_PID);
+        PID_Controller(Speed_PID.output, Park.Iq, &Iq_PID);
 
         InvParkTransform(Id_PID.output, Iq_PID.output, FOC.theta, &Inv_Park);
         SVPWM_Generate(Inv_Park.Ualpha, Inv_Park.Ubeta, inv_Udc, FOC.pwm_arr);
         break;
     }
+    case EXIT:
+    {
+        STOP = 1;
+        timer_interrupt_disable(TIMER0, TIMER_INT_BRK); // 禁用BRK中断
+        break;
+    }
     default:
     {
-        // 其他模式处理
-        timer_interrupt_enable(TIMER0, TIMER_INT_BRK); // 启用BRK中断
+
+        STOP = 1;
         FOC.Mode = IDLE;
         break;
     }
@@ -82,6 +124,7 @@ void FOC_Main(void)
 
 void Gate_state(void)
 {
+
     if (Protect_Flag != No_Protect)
     {
         STOP = 1;
@@ -89,27 +132,29 @@ void Gate_state(void)
     if (STOP)
     {
         // 软件触发 BRK
+        Software_BRK = ENABLE;
         TIMER_SWEVG(TIMER0) |= TIMER_SWEVG_BRKG;
     }
     else
     {
         // STOP = 0，尝试恢复
-        // if (gpio_input_bit_get(GPIOE, GPIO_PIN_15) == RESET)
+        if (gpio_input_bit_get(GPIOE, GPIO_PIN_15) == SET)
         {
+            Software_BRK = DISABLE;
             timer_primary_output_config(TIMER0, ENABLE); // 恢复 MOE
             STOP = 0;
         }
-        // else
-        // {
-        //     STOP = 1;
-        // }
+        else
+        {
+            STOP = 1;
+        }
     }
 }
 
 void Current_Protect(void)
 {
-    //if ((Ia > 0.9 * I_Max || Ia < -0.9 * I_Max) ||
-    if (  (Ib > 0.9 * I_Max || Ib < -0.9 * I_Max) ||
+    // if ((Ia > 0.9 * I_Max || Ia < -0.9 * I_Max) ||
+    if ((Ib > 0.9 * I_Max || Ib < -0.9 * I_Max) ||
         (Ic > 0.9 * I_Max || Ic < -0.9 * I_Max))
     {
         uint16_t Current_Count = 0;
@@ -136,31 +181,65 @@ void Parameter_Init(void)
     memset(&FOC, 0, sizeof(FOC_Parameter_t));
     memset(&Id_PID, 0, sizeof(PID_Controller_t));
     memset(&Iq_PID, 0, sizeof(PID_Controller_t));
+    memset(&Speed_PID, 0, sizeof(PID_Controller_t));
     memset(&Inv_Park, 0, sizeof(InvPark_t));
+    memset(&Motor, 0, sizeof(Motor_Parameter_t));
 
     Protect_Flag = No_Protect;
 
-    Id_PID.Kp = 0.1f;
-    Id_PID.Ki = 0.01f;
+
+    Motor.Pn = 5;
+    Motor.Resolver_Pn = 1;
+    Motor.inv_MotorPn = 1.0f / Motor.Pn; // 1/Pn
+    Motor.Rs = 1.25f;
+    Motor.Ld = 0.006f; // 6mH
+    Motor.Lq = 0.009f; // 9mH
+    Resolver_Offset = 6396.0f;
+    theta_factor = 2.0f * M_PI / (65536.0f * Motor.Resolver_Pn);
+
+    Speed_PID.Kp = 0.0f;
+    Speed_PID.Ki = 0.0f;
+    Speed_PID.Kd = 0.0f;
+    Speed_PID.MaxOutput =  0.7 * I_Max; // Maximum Iq
+    Speed_PID.MinOutput = -0.7 * I_Max;
+    Speed_PID.IntegralLimit = 0.7 * I_Max;
+    Speed_PID.previous_error = 0.0f;
+    Speed_PID.integral = 0.0f;
+    Speed_PID.output = 0.0f;
+    Speed_PID.Ts = T_2kHz;
+
+    Id_PID.Kp = 7.5398223686f;
+    Id_PID.Ki = 1570.796326794f;
     Id_PID.Kd = 0.0f;
-    Id_PID.MaxOutput = 5.0f; // Maximum Udc/sqrt(3)
-    Id_PID.MinOutput = -5.0f;
-    Id_PID.IntegralLimit = 5.0f;
+    Id_PID.MaxOutput = 50.0f; // Maximum Udc/sqrt(3)
+    Id_PID.MinOutput = -50.0f;
+    Id_PID.IntegralLimit = 50.0f;
     Id_PID.previous_error = 0.0f;
     Id_PID.integral = 0.0f;
     Id_PID.output = 0.0f;
-    Id_PID.Ts = T_2Khz;
+    Id_PID.Ts = T_2kHz;
 
-    Iq_PID.Kp = 0.1f;
-    Iq_PID.Ki = 0.01f;
+    Iq_PID.Kp = 11.30973355f;
+    Iq_PID.Ki = 1570.796326794f;
     Iq_PID.Kd = 0.0f;
-    Iq_PID.MaxOutput = 5.0f;
-    Iq_PID.MinOutput = -5.0f;
-    Iq_PID.IntegralLimit = 5.0f;
+    Iq_PID.MaxOutput = 50.0f;
+    Iq_PID.MinOutput = -50.0f;
+    Iq_PID.IntegralLimit = 50.0f;
     Iq_PID.previous_error = 0.0f;
     Iq_PID.integral = 0.0f;
     Iq_PID.output = 0.0f;
-    Iq_PID.Ts = T_2Khz;
+    Iq_PID.Ts = T_2kHz;
+
+    VF.Vref_Ud = 0.0f;
+    VF.Vref_Uq = 0.0f;
+    VF.Freq = 0.0f;
+    VF.Theta = 0.0f;
+
+    IF.Id_ref = 0.0f;
+    IF.Iq_ref = 0.0f;
+    IF.IF_Freq = 0.0f;
+    IF.Theta = 0.0f;
+    IF.Resolver_State = DISABLE;
 
     FOC.pwm_arr = PWM_ARR;
 }
@@ -205,11 +284,58 @@ void PID_Controller(float setpoint, float measured_value, PID_Controller_t *PID_
     PID_Controller->output = output_value;
 }
 
+static inline void Resolver(void)
+{
+    if (AD2S1210_Ready == SUCCESS)
+    {
+        Resolver_Fault = AD2S1210_Read();
+    }
+    //< use multiple instead of divide >//
+    theta_mech = (Resolver_Data - Resolver_Offset) * theta_factor;
+    theta_elec = theta_mech * Motor.Pn;
+    FOC.theta = theta_elec;
+}
+
+typedef struct
+{
+    float a;      // 反馈系数（= 极点位置）
+    float y_last; // 上一次输出值
+} LowPassFilter_t;
+
+LowPassFilter_t Speed_Filter = {
+    .a = 0.9685841f,
+    .y_last = 0.0f};
+
+static inline float LowPassFilter_Update(LowPassFilter_t *filter, float x)
+{
+    float y = filter->a * filter->y_last + (1.0f - filter->a) * x;
+    filter->y_last = y;
+    return y;
+}
+
+static inline void Speed_Compute(void)
+{
+    static float last_theta = 0.0f;
+    float delta_theta = theta_mech - last_theta;
+
+    // Wrap-around correction（处理 2π -> 0 或 0 -> 2π 的跳变）
+    if (delta_theta > M_PI) // 超过半圈，说明实际是逆转
+        delta_theta -= 2.0f * M_PI;
+    else if (delta_theta < -M_PI) // 反向跳变，说明正转
+        delta_theta += 2.0f * M_PI;
+
+    last_theta = theta_mech;
+
+    float Speed = delta_theta * f_2kHz * 60.0f * Motor.inv_MotorPn;
+    // 电机速度估算 (rpm)
+    // delta_theta 单位是 rad
+    FOC.Speed = LowPassFilter_Update(&Speed_Filter, Speed);
+}
+
 void ClarkeTransform(float_t Ia, float_t Ib, float_t Ic, Clarke_t *out)
 {
-    float Ia_ = -(Ib + Ic);
 #if (defined(TWO_PHASE_CURRENT_SENSING))
-    out->Ialpha = Ia_;
+    out->Ialpha = Ia;
     out->Ibeta = 0.57735026919f * (Ia_ + 2.0f * Ib); // 0.57735026919f 1/√3
 #elif (defined(THREE_PHASE_CURRENT_SENSING))
     out->Ialpha = 0.66666666667f * Ia - 0.33333333333f * (Ib + Ic);
@@ -246,14 +372,15 @@ void Set_PWM_Duty(float_t Ta, float_t Tb, float_t Tc, float_t pwm_arr)
 #endif
 }
 
-static inline void Get_Theta(float freq)
+static inline float Get_Theta(float Freq, float Theta)
 {
     // 电角度递推：θ += ω·Ts，ω = 2π·f
-    FOC.theta += 2.0f * M_PI * freq * T_2Khz;
-    if (FOC.theta > 2.0f * M_PI)
-        FOC.theta -= 2.0f * M_PI;
-    else if (FOC.theta < 0.0f)
-        FOC.theta += 2.0f * M_PI;
+    Theta += 2.0f * M_PI * Freq * T_2kHz;
+    if (Theta > 2.0f * M_PI)
+        Theta -= 2.0f * M_PI;
+    else if (Theta < 0.0f)
+        Theta += 2.0f * M_PI;
+    return Theta;
 }
 
 void SVPWM_Generate(float Ualpha, float Ubeta, float inv_Vdc, float pwm_arr)

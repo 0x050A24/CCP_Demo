@@ -1,6 +1,7 @@
 #include "tim.h"
 
 float PWM_ARR;
+ControlStatus Software_BRK = DISABLE;
 
 static inline uint8_t calculate_deadtime_value(uint32_t deadtime_ns, uint32_t timer_clk_hz);
 
@@ -57,7 +58,7 @@ void TIM0_PWM_Init(void)
     brk_param.runoffstate = TIMER_ROS_STATE_ENABLE;
     brk_param.ideloffstate = TIMER_IOS_STATE_ENABLE;
     brk_param.deadtime = calculate_deadtime_value(2000, SystemCoreClock); // 2us
-    brk_param.breakstate = TIMER_BREAK_DISABLE;
+    brk_param.breakstate = TIMER_BREAK_ENABLE;
     brk_param.breakpolarity = TIMER_BREAK_POLARITY_LOW;
     brk_param.protectmode = TIMER_CCHP_PROT_OFF;
     brk_param.outputautostate = TIMER_OUTAUTO_DISABLE;
@@ -71,7 +72,9 @@ void TIM0_PWM_Init(void)
     /* 先配置timer 再配置GPIO输出可以避免初始化时引脚拉低 */
     gpio_init(GPIOE, GPIO_MODE_AF_PP, GPIO_OSPEED_50MHZ,
               GPIO_PIN_8 | GPIO_PIN_9 | GPIO_PIN_10 | GPIO_PIN_11 |
-                  GPIO_PIN_12 | GPIO_PIN_13 | GPIO_PIN_15); // PE15 BRKIN
+                  GPIO_PIN_12 | GPIO_PIN_13);
+
+    gpio_init(GPIOE, GPIO_MODE_IN_FLOATING, GPIO_OSPEED_50MHZ, GPIO_PIN_15); // PE15 BRKIN
 
     // 7. 主输出使能 + 启动 必须经过Gate_State 状态检测
     // timer_primary_output_config(TIMER0, ENABLE);

@@ -5,6 +5,10 @@ volatile uint32_t DWT_Count = 0;
 volatile uint32_t TIMER1_Count = 0;
 
 uint16_t pin = 0;
+uint16_t ccr1 = 0;
+uint16_t ccr2 = 0;
+uint16_t ccr3 = 0;
+
 uint16_t receive = 0;
 uint16_t transmit = 0;
 
@@ -25,7 +29,7 @@ int main(void)
 {
     systick_config();
     TIM1_Init();
-    //DWT_Init(); // delay_us based on DWT
+    // DWT_Init(); // delay_us based on DWT
     /* initialize Serial port */
     USART_Init(&husart0);
     /* initialize GPIO */
@@ -38,11 +42,12 @@ int main(void)
     AD2S1210_Init();
     /* initialize Timer */
     TIM0_PWM_Init();
-    
+
     /* initialize external interrupt */
     EXIT_Config();
     /* initialize ADC */
-    adc_config_injected();
+    DMA_Init();
+    ADC_Init();
     /* initialize CAN and CCP */
     CAN_Init(&hcan0);
     ccpInit();
@@ -57,13 +62,17 @@ int main(void)
         ccpSendCallBack();
         Gate_state();
         ADC_Read_Regular();
-        pin = gpio_input_bit_get(GPIOE, GPIO_PIN_7);
+        pin = gpio_input_bit_get(GPIOE, GPIO_PIN_15);
 
-        //DWT_Count = DWT->CYCCNT; // 读取DWT计数器
+        // DWT_Count = DWT->CYCCNT; // 读取DWT计数器
         TIMER1_Count = TIMER_CNT(TIMER1);
-        
-
-
+        ccr1 = TIMER_CH0CV(TIMER0);
+        ccr2 = TIMER_CH1CV(TIMER0);
+        ccr3 = TIMER_CH2CV(TIMER0);
+        if (Temperature > 45.0f)
+        {
+            gpio_bit_set(FAN_OPEN_PORT, FAN_OPEN_PIN);
+        }
     }
 }
 
@@ -75,11 +84,13 @@ int main(void)
 */
 void nvic_config(void)
 {
+    nvic_priority_group_set(NVIC_PRIGROUP_PRE2_SUB2); // 设置中断优先级分组
     nvic_irq_enable(TIMER0_BRK_IRQn, 0, 0);
     nvic_irq_enable(EXTI5_9_IRQn, 1U, 0U);
     nvic_irq_enable(ADC0_1_IRQn, 2, 0);
     nvic_irq_enable(USBD_LP_CAN0_RX0_IRQn, 5, 0);
     /* SysTick_IRQn 009U */
+
     adc_interrupt_enable(ADC0, ADC_INT_EOIC);
 }
 

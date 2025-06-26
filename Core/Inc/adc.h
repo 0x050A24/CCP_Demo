@@ -8,8 +8,9 @@ extern float Ia;
 extern float Ib;
 extern float Ic;
 extern float inv_Udc;
+extern float Temperature;
 
-void adc_config_injected(void);
+void ADC_Init(void);
 void ADC_Calibration(void);
 void ADC_Read_Injection(void);
 void ADC_Read_Regular(void);

@@ -4,6 +4,7 @@
 #include "gd32f30x.h"
 
 extern float PWM_ARR;
+extern ControlStatus Software_BRK;
 
 void TIM0_PWM_Init(void);
 

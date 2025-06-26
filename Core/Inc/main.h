@@ -47,4 +47,5 @@ OF SUCH DAMAGE.
 #include "adc.h"
 #include "spi.h"
 #include "delay.h"
+#include "dma.h"
 #endif /* MAIN_H */

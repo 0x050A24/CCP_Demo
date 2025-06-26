@@ -4,7 +4,7 @@
  * @brief  根据GPIOx的地址使能对应GPIO时钟
  */
 GPIO_InitTypeDef GPIOD_InitStruct = {
-    .Pin = GPIO_PIN_7 |GPIO_PIN_8 | GPIO_PIN_9,
+    .Pin = GPIO_PIN_7 |GPIO_PIN_8 | GPIO_PIN_9, //PIN_7 LED PIN_8 Relay PIN_9 Fan
     .Mode = GPIO_MODE_OUT_PP,  // 输出推挽模式
     .Speed = GPIO_OSPEED_2MHZ, // 输出速率2MHz
     .Alternate = 0             // 复用功能未使用
@@ -18,7 +18,7 @@ GPIO_InitTypeDef GPIOB_InitStruct = {
 };
 
 GPIO_InitTypeDef GPIOE_InitStruct = {
-    .Pin = GPIO_PIN_7 | GPIO_PIN_15,
+    .Pin = GPIO_PIN_7,
     .Mode = GPIO_MODE_IN_FLOATING,  //
     .Speed = GPIO_OSPEED_50MHZ, // 
     .Alternate = 0             // 复用功能未使用

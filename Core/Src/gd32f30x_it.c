@@ -184,13 +184,18 @@ void EXTI5_9_IRQHandler(void)
 }
 
 extern Protect_Flags Protect_Flag;
+extern ControlStatus Software_BRK;
+
 void TIMER0_BRK_IRQHandler(void)
 {
-    if (timer_interrupt_flag_get(TIMER0, TIMER_INT_FLAG_BRK)) {
+    if (timer_interrupt_flag_get(TIMER0, TIMER_INT_FLAG_BRK))
+    {
         // 清除 Break 中断标志
         timer_interrupt_flag_clear(TIMER0, TIMER_INT_FLAG_BRK);
-
-        // STOP = 1; 
-        // Protect_Flag |= Hardware_Fault;
+        STOP = 1;
+        if(Software_BRK == DISABLE)
+        {
+            Protect_Flag |= Hardware_Fault;
+        }
     }
 }
