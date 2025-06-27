@@ -63,16 +63,8 @@ int main(void)
         Gate_state();
         ADC_Read_Regular();
         pin = gpio_input_bit_get(GPIOE, GPIO_PIN_15);
-
         // DWT_Count = DWT->CYCCNT; // 读取DWT计数器
-        TIMER1_Count = TIMER_CNT(TIMER1);
-        ccr1 = TIMER_CH0CV(TIMER0);
-        ccr2 = TIMER_CH1CV(TIMER0);
-        ccr3 = TIMER_CH2CV(TIMER0);
-        if (Temperature > 45.0f)
-        {
-            gpio_bit_set(FAN_OPEN_PORT, FAN_OPEN_PIN);
-        }
+        Temperature_Protect();
     }
 }
 

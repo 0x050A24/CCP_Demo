@@ -72,7 +72,7 @@ typedef enum
     Over_Voltage = 1 << 2,         // 0b0100
     Low_Voltage = 1 << 3,          // 0b1000
     Hardware_Fault = 1 << 4,       // 0b10000
-    Over_Temperature = 1 << 5      // 0b100000
+    Over_Heat = 1 << 5      // 0b100000
 } Protect_Flags;
 
 typedef struct
@@ -120,9 +120,11 @@ typedef struct
 
 typedef struct
 {
-    float_t theta;   /* Electrical angle (rad) */
+    float_t Theta;   /* Electrical angle (rad) */
     float_t Speed;  /* Speed (rpm) */
-    float_t pwm_arr; /* PWM period */
+    float_t Ud_ref;
+    float_t Uq_ref;
+    float_t PWM_ARR; /* PWM period */
     FOC_Mode Mode;   // 当前控制模式
 } FOC_Parameter_t;
 
@@ -158,5 +160,6 @@ void InvParkTransform(float_t Ud, float_t Uq, float_t theta, InvPark_t *out);
 void SVPWM_Generate(float Ualpha, float Ubeta, float inv_Vdc, float pwm_arr);
 void Set_PWM_Duty(float_t Ta, float_t Tb, float_t Tc, float_t pwm_arr);
 void PID_Controller(float setpoint, float measured_value, PID_Controller_t *PID_Controller);
+void Temperature_Protect(void);
 
 #endif /* _FOC_H_ */
