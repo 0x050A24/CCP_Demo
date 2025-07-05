@@ -68,9 +68,9 @@ target_sources(${PROJECT_NAME} PRIVATE
     Core/Src/tim.c
     Core/Src/foc.c
     Core/Src/adc.c
-    Core/Src/spi.c
     Core/Src/temp_table.c
     Core/Src/dma.c
+    Core/Src/position_sensor.c
 )
 
 target_link_libraries(${PROJECT_NAME}

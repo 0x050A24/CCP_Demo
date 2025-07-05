@@ -20,15 +20,12 @@ float theta_mech = 0.0f;
 float theta_elec = 0.0f;
 float theta_factor = 0.0f; // Resolver to mechanic angle conversion factor
 
-float Resolver_Offset = 0.0f;
-
 float Speed_Ref = 0.0f;
 
 static inline void Current_Protect(void);
 static inline float Get_Theta(float Freq, float Theta);
 static inline void Parameter_Init(void);
-static inline void ReadResolver(void);
-static inline void Speed_Compute(void);
+static inline void Theta_Process(void);
 static inline float wrap_theta_2pi(float theta);
 
 extern uint16_t receive;
@@ -38,8 +35,8 @@ void FOC_Main(void)
     ADC_Read_Injection();
     Current_Protect();
     Gate_state();
-    ReadResolver();
-    Speed_Compute();
+    ReadPosition();
+    Theta_Process();
 
     ClarkeTransform(Ia, Ib, Ic, &Clarke);
 
@@ -50,7 +47,7 @@ void FOC_Main(void)
         Parameter_Init();
         if (Udc > 200.0f) // 200V
         {
-            timer_interrupt_enable(TIMER0, TIMER_INT_BRK); // 启用BRK中断
+            // timer_interrupt_enable(TIMER0, TIMER_INT_BRK); // 启用BRK中断
             ADC_Calibration();
         }
         FOC.Mode = IDLE;
@@ -115,6 +112,9 @@ void FOC_Main(void)
     {
         STOP = 1;
         timer_interrupt_disable(TIMER0, TIMER_INT_BRK); // 禁用BRK中断
+        FOC.Ud_ref = 0.0f;
+        FOC.Uq_ref = 0.0f;
+
         break;
     }
     default:
@@ -145,16 +145,16 @@ void Gate_state(void)
     else
     {
         // STOP = 0，尝试恢复
-        if (gpio_input_bit_get(GPIOE, GPIO_PIN_15) == SET)
+        // if (gpio_input_bit_get(GPIOE, GPIO_PIN_15) == SET)
         {
             Software_BRK = DISABLE;
             timer_primary_output_config(TIMER0, ENABLE); // 恢复 MOE
             STOP = 0;
         }
-        else
-        {
-            STOP = 1;
-        }
+        // else
+        //{
+        //     STOP = 1;
+        // }
     }
 }
 
@@ -210,12 +210,13 @@ void Parameter_Init(void)
 
     Motor.Pn = 5;
     Motor.Resolver_Pn = 1;
+    Motor.Resolver_Scale = 65535;
     Motor.inv_MotorPn = 1.0f / Motor.Pn; // 1/Pn
     Motor.Rs = 1.25f;
     Motor.Ld = 0.006f; // 6mH
     Motor.Lq = 0.009f; // 9mH
-    Resolver_Offset = 6396.0f;
-    theta_factor = 2.0f * M_PI / (65536.0f * Motor.Resolver_Pn);
+    Motor.Positon_Offset = 6396.0f;
+    theta_factor = 2.0f * M_PI / ((Motor.Resolver_Scale + 1) * Motor.Resolver_Pn);
 
     Speed_PID.Kp = 0.0f;
     Speed_PID.Ki = 0.0f;
@@ -306,24 +307,12 @@ void PID_Controller(float setpoint, float measured_value, PID_Controller_t *PID_
 
 static inline float wrap_theta_2pi(float theta)
 {
-    if (theta >= 2.0f * M_PI) theta -= 2.0f * M_PI;
-    else if (theta < 0.0f)    theta += 2.0f * M_PI;
+    if (theta >= 2.0f * M_PI)
+        theta -= 2.0f * M_PI;
+    else if (theta < 0.0f)
+        theta += 2.0f * M_PI;
     return theta;
 }
-
-static inline void ReadResolver(void)
-{
-    if (AD2S1210_Ready == SUCCESS)
-    {
-        Resolver_Fault = AD2S1210_Read();
-    }
-    //< use multiple instead of divide >//
-    theta_mech = (Resolver_Data - Resolver_Offset) * theta_factor;
-    theta_elec = theta_mech * Motor.Pn;
-
-    FOC.Theta = wrap_theta_2pi(theta_elec);
-}
-
 
 typedef struct
 {
@@ -342,8 +331,13 @@ static inline float LowPassFilter_Update(LowPassFilter_t *filter, float x)
     return y;
 }
 
-static inline void Speed_Compute(void)
+static inline void Theta_Process(void)
 {
+    //< use multiple instead of divide >//
+    theta_mech = (Position_Data - Motor.Positon_Offset) * theta_factor;
+    theta_elec = theta_mech * Motor.Pn;
+
+    FOC.Theta = wrap_theta_2pi(theta_elec);
     static float last_theta = 0.0f;
     float delta_theta = theta_mech - last_theta;
 
@@ -365,7 +359,7 @@ void ClarkeTransform(float_t Ia, float_t Ib, float_t Ic, Clarke_t *out)
 {
 #if (defined(TWO_PHASE_CURRENT_SENSING))
     out->Ialpha = Ia;
-    out->Ibeta = 0.57735026919f * (Ia_ + 2.0f * Ib); // 0.57735026919f 1/√3
+    out->Ibeta = 0.57735026919f * (Ia + 2.0f * Ib); // 0.57735026919f 1/√3
 #elif (defined(THREE_PHASE_CURRENT_SENSING))
     out->Ialpha = 0.66666666667f * Ia - 0.33333333333f * (Ib + Ic);
     out->Ibeta = 0.57735026919f * (Ib - Ic); // 0.57735026919f 1/√3

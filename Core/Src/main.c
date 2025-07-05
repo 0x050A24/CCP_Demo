@@ -27,9 +27,9 @@ void relay_init(void);
 */
 int main(void)
 {
-    systick_config();
-    TIM1_Init();
-    // DWT_Init(); // delay_us based on DWT
+    systick_config(); // systick provides delay_ms
+    TIM1_Init(); // TIM1 provides delay_us
+    // DWT_Init();
     /* initialize Serial port */
     USART_Init(&husart0);
     /* initialize GPIO */
@@ -37,12 +37,10 @@ int main(void)
     GPIO_Init(GPIOB, &GPIOB_InitStruct);
     GPIO_Init(GPIOE, &GPIOE_InitStruct);
 
-    /* initialize AD2S1210 */
-    SPI_Init();
-    AD2S1210_Init();
+    /* initialize Position_Sensor */
+    Position_Sensor_Init();
     /* initialize Timer */
     TIM0_PWM_Init();
-
     /* initialize external interrupt */
     EXIT_Config();
     /* initialize ADC */

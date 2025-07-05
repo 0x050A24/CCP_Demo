@@ -196,6 +196,8 @@ void TIMER0_BRK_IRQHandler(void)
         if(Software_BRK == DISABLE)
         {
             Protect_Flag |= Hardware_Fault;
+            timer_interrupt_disable(TIMER0, TIMER_INT_BRK); // 禁用BRK中断
+            timer_primary_output_config(TIMER0, DISABLE);
         }
     }
 }

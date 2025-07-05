@@ -82,8 +82,10 @@ typedef struct
     float Lq;
     float Flux;
     float Pn;
+    uint16_t Resolver_Scale;
     float Resolver_Pn;
     float inv_MotorPn;
+    float Positon_Offset; // Zero Position
 } Motor_Parameter_t;
 
 typedef struct

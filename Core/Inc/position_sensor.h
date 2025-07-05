@@ -1,11 +1,23 @@
-#ifndef _SPI_H_
-#define _SPI_H_
+#ifndef _POSITION_SENSOR_H_
+#define _POSITION_SENSOR_H_
 
 #include "gd32f30x.h"
 #include "gpio.h"
 #include "systick.h"
+#include "delay.h"
 
-#define Excitation_Frequency 0x28 // 10kHz
+/*  Gate polarity definition */
+#ifndef Encoder_Position
+#ifndef Resolver_Position
+#define Resolver_Position /* Define here */
+#endif
+#endif
+
+#if !defined(Encoder_Position) && !defined(Resolver_Position) && !defined(Software_Position)
+#error "Please define Positon Sensor Entry in positon_sensor.h"
+#endif
+
+#define Excitation_Frequency 0x28  // 10kHz
 #define Control_Register_Data 0x7D // 14 bits Resolution, 16 bits EncoderResolution
 
 #define A0PORT GPIOA
@@ -24,14 +36,12 @@
 #define CONTROL_REG 0x92
 #define ERROR_REG 0xFF
 
-extern uint16_t Resolver_Data;
+extern uint16_t Position_Data;
 extern uint8_t Resolver_Fault;
 extern ErrStatus AD2S1210_Config;
 extern ErrStatus AD2S1210_Ready;
 
-void SPI_Init(void);
-void AD2S1210_Init(void);
-uint8_t AD2S1210_Read(void);
-uint8_t spi_send_receive_byte(uint32_t spi_periph, uint8_t byte);
+void Position_Sensor_Init(void);
+void ReadPosition(void);
 
-#endif
+#endif // _POSITION_SENSOR_H_

@@ -46,7 +46,7 @@
         ],
         "terminal.integrated.profiles.windows": {
             "bash (MSYS2)": {
-                "path": "E:\\msys64\\usr\bin\\bash.exe",
+                "path": "D:\\Program\\mysys2\\usr\bin\\bash.exe",
                 "args": [
                     "--login",
                     "-i"
