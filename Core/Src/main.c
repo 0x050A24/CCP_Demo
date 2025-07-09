@@ -12,6 +12,7 @@ uint16_t ccr3 = 0;
 uint16_t receive = 0;
 uint16_t transmit = 0;
 
+
 void DWT_Init(void);
 void daq_trigger(void);
 void nvic_config(void);
@@ -29,7 +30,7 @@ int main(void)
 {
     systick_config(); // systick provides delay_ms
     TIM1_Init(); // TIM1 provides delay_us
-    // DWT_Init();
+    DWT_Init();
     /* initialize Serial port */
     USART_Init(&husart0);
     /* initialize GPIO */
@@ -78,6 +79,7 @@ void nvic_config(void)
     nvic_irq_enable(TIMER0_BRK_IRQn, 0, 0);
     nvic_irq_enable(EXTI5_9_IRQn, 1U, 0U);
     nvic_irq_enable(ADC0_1_IRQn, 2, 0);
+    nvic_irq_enable(TIMER3_IRQn, 3, 0);
     nvic_irq_enable(USBD_LP_CAN0_RX0_IRQn, 5, 0);
     /* SysTick_IRQn 009U */
 

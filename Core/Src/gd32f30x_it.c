@@ -193,11 +193,23 @@ void TIMER0_BRK_IRQHandler(void)
         // 清除 Break 中断标志
         timer_interrupt_flag_clear(TIMER0, TIMER_INT_FLAG_BRK);
         STOP = 1;
-        if(Software_BRK == DISABLE)
+        if (Software_BRK == DISABLE)
         {
             Protect_Flag |= Hardware_Fault;
             timer_interrupt_disable(TIMER0, TIMER_INT_BRK); // 禁用BRK中断
             timer_primary_output_config(TIMER0, DISABLE);
         }
+    }
+}
+
+/* */
+void TIMER3_IRQHandler(void)
+{
+    if (timer_interrupt_flag_get(TIMER3, TIMER_INT_FLAG_CH2))
+    {
+        // 清除 CH2 中断标志
+        timer_interrupt_flag_clear(TIMER3, TIMER_INT_FLAG_CH2);
+
+        TIMER_CNT(TIMER3) = 0;
     }
 }

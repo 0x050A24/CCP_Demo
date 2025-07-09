@@ -58,7 +58,7 @@ void TIM0_PWM_Init(void)
     brk_param.runoffstate = TIMER_ROS_STATE_ENABLE;
     brk_param.ideloffstate = TIMER_IOS_STATE_ENABLE;
     brk_param.deadtime = calculate_deadtime_value(2000, SystemCoreClock); // 2us
-    brk_param.breakstate = TIMER_BREAK_DISABLE;
+    brk_param.breakstate = TIMER_BREAK_ENABLE;
     brk_param.breakpolarity = TIMER_BREAK_POLARITY_LOW;
     brk_param.protectmode = TIMER_CCHP_PROT_OFF;
     brk_param.outputautostate = TIMER_OUTAUTO_DISABLE;

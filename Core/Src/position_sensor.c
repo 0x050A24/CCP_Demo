@@ -8,6 +8,7 @@ ErrStatus AD2S1210_Ready = ERROR;
 
 static inline void SPI_Init(void);
 static inline void AD2S1210_Init(void);
+static inline void Encoder_Init(void);
 static inline uint8_t spi_send_receive_byte(uint32_t spi_periph, uint8_t byte);
 
 void Position_Sensor_Init(void)
@@ -17,7 +18,7 @@ void Position_Sensor_Init(void)
     AD2S1210_Init();
 #endif
 #ifdef Encoder_Position
-// Initialize Encoder Position Sensor
+    Encoder_Init();
 #endif
 }
 
@@ -35,15 +36,18 @@ void ReadPosition(void)
         uint8_t Fault = spi_send_receive_byte(SPI2, 0x00);
 
         Position_Data = (Hbyte << 8) | Lbyte; // Combine high and low byte
-        Resolver_Fault = Fault; 
+        Resolver_Fault = Fault;
         gpio_bit_set(WRPORT, WRPin);         // Set WR
         gpio_bit_set(SAMPLEPORT, SAMPLEPin); // Set SAMPLE
     }
     else
     {
-        Position_Data = 0; // If not ready, set position data to 0
+        Position_Data = 0;     // If not ready, set position data to 0
         Resolver_Fault = 0xFF; // All fault if not ready
     }
+#endif
+#ifdef Encoder_Position
+    Position_Data = TIMER_CNT(TIMER3);
 #endif
 }
 
@@ -182,4 +186,50 @@ static inline uint8_t spi_send_receive_byte(uint32_t spi_periph, uint8_t byte)
 
     /* 返回接收到的字节 */
     return spi_i2s_data_receive(spi_periph);
+}
+
+static inline void Encoder_Init(void)
+{
+    timer_parameter_struct timer_initpara;
+    timer_ic_parameter_struct timer_icinitpara;
+
+    /* enable the key clock */
+    rcu_periph_clock_enable(RCU_GPIOD);
+    rcu_periph_clock_enable(RCU_TIMER3);
+    rcu_periph_clock_enable(RCU_AF);
+
+    gpio_init(GPIOD, GPIO_MODE_IPU, GPIO_OSPEED_50MHZ, GPIO_PIN_12 | GPIO_PIN_13 | GPIO_PIN_14);
+    gpio_pin_remap_config(GPIO_TIMER3_REMAP, ENABLE);
+
+    timer_deinit(TIMER3);
+
+    /* TIMER configuration */
+    timer_initpara.prescaler = 1 - 1;
+    timer_initpara.alignedmode = TIMER_COUNTER_EDGE;
+    timer_initpara.counterdirection = TIMER_COUNTER_UP;
+    timer_initpara.period = 10000 - 1;
+    timer_initpara.clockdivision = TIMER_CKDIV_DIV1;
+    timer_initpara.repetitioncounter = 0;
+    timer_init(TIMER3, &timer_initpara);
+
+    /* TIMER3 CH0,1 input capture configuration */
+    timer_icinitpara.icpolarity = TIMER_IC_POLARITY_RISING;
+    timer_icinitpara.icselection = TIMER_IC_SELECTION_DIRECTTI;
+    timer_icinitpara.icprescaler = TIMER_IC_PSC_DIV1;
+    timer_icinitpara.icfilter = 0x05; // 0x05
+
+    timer_input_capture_config(TIMER3, TIMER_CH_0, &timer_icinitpara);
+    timer_input_capture_config(TIMER3, TIMER_CH_1, &timer_icinitpara);
+    timer_input_capture_config(TIMER3, TIMER_CH_2, &timer_icinitpara);
+
+    /* TIMER_ENCODER_MODE2 */
+    timer_quadrature_decoder_mode_config(TIMER3, TIMER_ENCODER_MODE2, TIMER_IC_POLARITY_RISING, TIMER_IC_POLARITY_RISING);
+    timer_slave_mode_select(TIMER3, TIMER_ENCODER_MODE2);
+    /* auto-reload preload enable */
+    timer_auto_reload_shadow_enable(TIMER3);
+
+    timer_interrupt_flag_clear(TIMER3, TIMER_INT_FLAG_CH2);
+    timer_interrupt_enable(TIMER3, TIMER_INT_CH2);
+
+    timer_enable(TIMER3);
 }
