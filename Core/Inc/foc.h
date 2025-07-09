@@ -47,10 +47,13 @@
 /*       Constants      */
 #define SQRT3 1.73205080757f
 #define SQRT3_2 0.86602540378f /* √3/2 */
-#define T_Main 0.0005f         /* 2kHz */
-#define T_2kHz 0.0005f         /* 2kHz */
+#define T_Main 0.0005f         /* T 2kHz */
+#define T_2kHz 0.0005f         /* T 2kHz */
+#define f_2kHz 2000.0f         /* f 2kHz */
+#define T_1kHz 0.0001f         /* T 1kHz */
+#define T_200Hz 0.005f         /* T 200Hz */
 #define T_10kHz 0.0001f        /* 10kHz sampling time */
-#define f_2kHz 2000.0f         /* 2kHz */
+
 
 /*    Type Definitions   */
 typedef enum
@@ -110,6 +113,16 @@ typedef struct
     float IntegralLimit;  /* Integral limit to prevent windup */
     float Ts;             /* Sample time */
 } PID_Controller_t;
+
+typedef struct
+{
+    float value; // output value
+    float slope; // Δvalue/s
+    float limit_min;
+    float limit_max;
+    float target;
+    float Ts;
+} RampGenerator_t;
 
 typedef struct
 {

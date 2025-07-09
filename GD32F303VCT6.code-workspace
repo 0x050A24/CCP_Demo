@@ -59,11 +59,17 @@
         },
         "terminal.integrated.defaultProfile.windows": "PowerShell",
         "cortex-debug.variableUseNaturalFormat": true,
+        "commentAnchors.showCursor": true,
         "better-comments.multilineComments": true,
         "better-comments.tags": [
             {
-                "tag": "!",
-                "color": "#FF2D00"
+                "tag": "#",
+                "color": "#FF2D00",
+                "strikethrough": false,
+                "underline": false,
+                "backgroundColor": "transparent",
+                "bold": false,
+                "italic": false
             },
             {
                 "tag": "<",

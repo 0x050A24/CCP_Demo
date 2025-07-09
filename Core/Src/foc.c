@@ -11,6 +11,7 @@ IF_Parameter_t IF;
 PID_Controller_t Id_PID;
 PID_Controller_t Iq_PID;
 PID_Controller_t Speed_PID;
+RampGenerator_t Speed_Ramp;
 InvPark_t Inv_Park;
 Clarke_t Clarke;
 Park_t Park;
@@ -29,10 +30,10 @@ static inline float Get_Theta(float Freq, float Theta);
 static inline void Parameter_Init(void);
 static inline void Theta_Process(void);
 static inline float wrap_theta_2pi(float theta);
+static inline float RampGenerator(RampGenerator_t *ramp);
 
 extern uint16_t receive;
-
-//SECTION - FOC Main Function
+// SECTION - FOC Main
 void FOC_Main(void)
 {
     ADC_Read_Injection();
@@ -45,7 +46,6 @@ void FOC_Main(void)
 
     switch (FOC.Mode)
     {
-    //SECTION - Init
     case INIT:
     {
         Parameter_Init();
@@ -57,15 +57,11 @@ void FOC_Main(void)
         FOC.Mode = IDLE;
         break;
     }
-    //!SECTION
-    //SECTION - Idle
     case IDLE:
     {
         STOP = 1;
         break;
     }
-    //!SECTION
-    //SECTION - VF
     case VF_MODE:
     {
         VF.Theta = Get_Theta(VF.Freq, VF.Theta);
@@ -74,8 +70,7 @@ void FOC_Main(void)
         FOC.Uq_ref = VF.Vref_Uq;
         break;
     }
-    //!SECTION
-    //SECTION - IF
+    // SECTION - IF Mode
     case IF_MODE:
     {
         if (IF.Sensor_State == ENABLE)
@@ -87,7 +82,6 @@ void FOC_Main(void)
             IF.Theta = Get_Theta(IF.IF_Freq, IF.Theta);
         }
         FOC.Theta = IF.Theta;
-        
 
         ParkTransform(Clarke.Ialpha, Clarke.Ibeta, FOC.Theta, &Park);
         FOC.Id_ref = IF.Id_ref;
@@ -101,8 +95,8 @@ void FOC_Main(void)
 
         break;
     }
-    //!SECTION
-    //SECTION - Speed
+    // !SECTION
+    // SECTION - Speed Mode
     case Speed_Mode:
     {
 
@@ -112,11 +106,13 @@ void FOC_Main(void)
         if (Speed_Count > 9)
         {
             Speed_Count = 0;
-            PID_Controller(Speed_Ref, FOC.Speed, &Speed_PID);
+            Speed_Ramp.target = Speed_Ref;
+
+            PID_Controller(RampGenerator(&Speed_Ramp), FOC.Speed, &Speed_PID);
         }
 
-        FOC.Id_ref = 0.0f;             // Id_ref = 0
-        FOC.Iq_ref = Speed_PID.output; // Iq_ref = Speed_PID.output
+        FOC.Iq_ref = Speed_PID.output;        // Iq_ref = Speed_PID.output
+        FOC.Id_ref = 0.37446808 * FOC.Iq_ref; // Id_ref = 0
 
         PID_Controller(FOC.Id_ref, Park.Id, &Id_PID);
         PID_Controller(FOC.Iq_ref, Park.Iq, &Iq_PID);
@@ -126,8 +122,7 @@ void FOC_Main(void)
 
         break;
     }
-    //!SECTION
-    //SECTION - Exit
+    // !SECTION
     case EXIT:
     {
         STOP = 1;
@@ -139,7 +134,6 @@ void FOC_Main(void)
 
         break;
     }
-    //!SECTION
     default:
     {
         STOP = 1;
@@ -151,9 +145,7 @@ void FOC_Main(void)
     InvParkTransform(FOC.Ud_ref, FOC.Uq_ref, FOC.Theta, &Inv_Park);
     SVPWM_Generate(Inv_Park.Ualpha, Inv_Park.Ubeta, inv_Udc, FOC.PWM_ARR);
 }
-//!SECTION
-
-//SECTION - Gate Control
+// !SECTION
 void Gate_state(void)
 {
 
@@ -182,7 +174,6 @@ void Gate_state(void)
         }
     }
 }
-//!SECTION
 
 void Current_Protect(void)
 {
@@ -199,8 +190,7 @@ void Current_Protect(void)
             Current_Count = 0;
         }
     }
-    if ((Ia > I_Max || Ia < -1 * I_Max) ||
-        (Ib > I_Max || Ib < -1 * I_Max) ||
+    if ((Ia > I_Max || Ia < -1 * I_Max) || (Ib > I_Max || Ib < -1 * I_Max) ||
         (Ic > I_Max || Ic < -1 * I_Max))
     {
         STOP = 1;
@@ -221,7 +211,7 @@ void Temperature_Protect(void)
     }
 }
 
-//SECTION - Parameter initialization
+// SECTION - Parameter Init
 void Parameter_Init(void)
 {
     memset(&VF, 0, sizeof(VF_Parameter_t));
@@ -231,6 +221,7 @@ void Parameter_Init(void)
     memset(&Speed_PID, 0, sizeof(PID_Controller_t));
     memset(&Inv_Park, 0, sizeof(InvPark_t));
     memset(&Motor, 0, sizeof(Motor_Parameter_t));
+    memset(&Speed_Ramp, 0, sizeof(RampGenerator_t));
 
     STOP = 1;
     Protect_Flag = No_Protect;
@@ -259,6 +250,13 @@ void Parameter_Init(void)
     Speed_PID.integral = 0.0f;
     Speed_PID.output = 0.0f;
     Speed_PID.Ts = T_2kHz;
+    
+    Speed_Ramp.slope = 50.0f; // limit to 50 rpm/s
+    Speed_Ramp.limit_min = -1800.0f;
+    Speed_Ramp.limit_max = 1800.0f;
+    Speed_Ramp.value = 0.0f;
+    Speed_Ramp.target = 0.0f;
+    Speed_Ramp.Ts = T_200Hz;
 
     Id_PID.Kp = 73.8274273f;
     Id_PID.Ki = 408.40704496f;
@@ -295,9 +293,10 @@ void Parameter_Init(void)
 
     FOC.PWM_ARR = PWM_ARR;
 }
-//!SECTION
+// !SECTION
 
-void PID_Controller(float setpoint, float measured_value, PID_Controller_t *PID_Controller)
+void PID_Controller(float setpoint, float measured_value,
+                    PID_Controller_t *PID_Controller)
 {
     float difference = setpoint - measured_value;
     float integral = PID_Controller->integral;
@@ -352,9 +351,7 @@ typedef struct
     float y_last; // 上一次输出值
 } LowPassFilter_t;
 
-LowPassFilter_t Speed_Filter = {
-    .a = 0.9685841f,
-    .y_last = 0.0f};
+LowPassFilter_t Speed_Filter = {.a = 0.9685841f, .y_last = 0.0f};
 
 static inline float LowPassFilter_Update(LowPassFilter_t *filter, float x)
 {
@@ -363,7 +360,7 @@ static inline float LowPassFilter_Update(LowPassFilter_t *filter, float x)
     return y;
 }
 
-//SECTION - Theta Process
+// SECTION - Theta Process
 static inline void Theta_Process(void)
 {
     int32_t pos_delta = Position_Data - Motor.Positon_Offset;
@@ -388,7 +385,41 @@ static inline void Theta_Process(void)
     float Speed = delta_theta * f_2kHz * 60.0f / (2.0f * M_PI);
     FOC.Speed = LowPassFilter_Update(&Speed_Filter, Speed);
 }
-//!SECTION
+// !SECTION
+
+// SECTION - Ramp Generator
+static inline float RampGenerator(RampGenerator_t *ramp)
+{
+    if (STOP == 1)
+    {
+        ramp->value = 0.0f;
+        ramp->target = 0.0f;
+    }
+    
+    float delta = ramp->target - ramp->value;
+    float step = ramp->slope * ramp->Ts;
+
+    if (delta > step)
+    {
+        ramp->value += step;
+    }
+    else if (delta < -step)
+    {
+        ramp->value -= step;
+    }
+    else
+    {
+        ramp->value = ramp->target;
+    }
+
+    if (ramp->value > ramp->limit_max)
+        ramp->value = ramp->limit_max;
+    if (ramp->value < ramp->limit_min)
+        ramp->value = ramp->limit_min;
+
+    return ramp->value;
+}
+// !SECTION
 
 void ClarkeTransform(float_t Ia, float_t Ib, float_t Ic, Clarke_t *out)
 {

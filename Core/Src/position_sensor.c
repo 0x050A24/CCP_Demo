@@ -146,7 +146,7 @@ static inline void AD2S1210_Init(void)
 
     delay_us(5);
 
-    //! Use the ERROR Register to read back Data and exit !//
+    //# Use the ERROR Register to read back Data and exit #//
     gpio_bit_reset(WRPORT, WRPin); // Reset WR
     delay_us(5);
     if (Control_Register_Data == spi_send_receive_byte(SPI2, ERROR_REG))
