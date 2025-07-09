@@ -18,5 +18,5 @@
         },
     ],
     "cortex-debug.variableUseNaturalFormat": true,
-    "C_Cpp.default.compilerPath": "E:/Arm_Toolchain/arm-none-eabi/14.2rel1/bin/arm-none-eabi-gcc.exe"
+    "C_Cpp.default.compilerPath": "arm-none-eabi-gcc.exe"
 }
