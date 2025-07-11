@@ -16,8 +16,6 @@ InvPark_t Inv_Park;
 Clarke_t Clarke;
 Park_t Park;
 
-uint16_t auto_adjust = 0;
-
 float I_Max = 10.0f;
 float theta_mech = 0.0f;
 float theta_elec = 0.0f;
@@ -33,7 +31,6 @@ static inline float wrap_theta_2pi(float theta);
 static inline float RampGenerator(RampGenerator_t *ramp);
 static inline void Set_PWM_Change_Point(float_t Ta, float_t Tb, float_t Tc, float_t pwm_arr);
 
-extern uint16_t receive;
 // SECTION - FOC Main
 void FOC_Main(void)
 {

@@ -13,10 +13,9 @@ def read_file(path):
 
 def _strip_dynamic_lines(lines):
     # 去除首行时间戳
-    lines = [line.rstrip() for line in lines]  # 去除所有尾部空白
+    lines = [line.rstrip() for line in lines]  # 去除尾部空白
     if lines and re.match(r"/\*\s*Auto-generated:.*\*/", lines[0]):
         lines = lines[1:]
-    # 去除末尾所有空行
     while lines and lines[-1].strip() == "":
         lines.pop()
     return lines
@@ -34,12 +33,7 @@ def write_file(path, lines):
         if last_lines_cleaned == new_lines_cleaned:
             content_changed = False
 
-    # 不论如何都写入，保持文件带脚本改动
     with open(path, "w", encoding="utf-8", newline='\n') as f:
-        f.writelines(lines)
-
-    # 更新.last
-    with open(last_path, "w", encoding="utf-8", newline='\n') as f:
         f.writelines(lines)
 
     if content_changed:
@@ -47,9 +41,10 @@ def write_file(path, lines):
     else:
         print(f"Contents already match: {path}")
 
+    return content_changed
+
 
 def parse_blocks(lines):
-    """返回所有 /begin.../end 块: (keyword, name, start, end)"""
     blocks, stack = [], []
     for i, ln in enumerate(lines):
         stripped = ln.strip()
@@ -75,7 +70,6 @@ def filter_a2l(in_path, out_path):
         if kw in ("MEASUREMENT", "CHARACTERISTIC")
     ]
 
-    # 定义类型到 CompMethod 名称和 printf 格式映射
     compu_map = {
         "UBYTE": ("NO_COMPU_UBYTE", "%3.0"),
         "SBYTE": ("NO_COMPU_SBYTE", "%4.0"),
@@ -85,9 +79,9 @@ def filter_a2l(in_path, out_path):
         "SLONG": ("NO_COMPU_SLONG", "%11.0"),
         "FLOAT32_IEEE": ("NO_COMPU_FLOAT32", "%8.6"),
     }
-    # 跳过模式列表，便于后续扩展
+
     skip_patterns = [
-        re.compile(r".*\._\d+_\..*"),  # 带 indexed 成员的变量
+        re.compile(r".*\._\d+_\..*"),
         re.compile(r".*Table.*"),
         re.compile(r".*Coef.*"),
         re.compile(r".*husart0.*"),
@@ -95,8 +89,6 @@ def filter_a2l(in_path, out_path):
         re.compile(r".*_lut*"),
         re.compile(r".*ccp.*"),
         re.compile(r".*GPIOD_InitStruct.*"),
-        # 添加更多需要跳过的正则，如:
-        # re.compile(r'^temp_.*'),
     ]
 
     out_lines, idx = [], 0
@@ -104,28 +96,24 @@ def filter_a2l(in_path, out_path):
         line = lines[idx]
         stripped = line.strip()
 
-        # 注入 CompMethods 定义到 MODULE 开始处，并添加空行
         if stripped.startswith("/begin MODULE"):
             out_lines.append(line)
-            out_lines.append("\n")  # MODULE 与首个 COMPU_METHOD 之间空行
+            out_lines.append("\n")
             for dtype, (mname, fmt) in compu_map.items():
                 out_lines.append(
-                    f'    /begin COMPU_METHOD {mname} "Identity {dtype}"\n'
-                )
+                    f'    /begin COMPU_METHOD {mname} "Identity {dtype}"\n')
                 out_lines.append("      RAT_FUNC\n")
                 out_lines.append(f'      "{fmt}"\n')
                 out_lines.append('      ""\n')
                 out_lines.append("      COEFFS 0 1 0 0 0 1\n")
-                out_lines.append(f"    /end COMPU_METHOD\n")
-                out_lines.append("\n")  # 每个 COMPU_METHOD 之后空行
+                out_lines.append("    /end COMPU_METHOD\n")
+                out_lines.append("\n")
             idx += 1
             continue
 
-        # MEASUREMENT/CHARACTERISTIC 处理
         block = next(((s, e, name) for (s, e, name) in mblocks if s == idx), None)
         if block:
             s, e, name = block
-            # 检查是否匹配任何跳过模式
             if any(pat.match(name) for pat in skip_patterns):
                 idx = e + 1
                 continue
@@ -145,15 +133,12 @@ def filter_a2l(in_path, out_path):
             idx = e + 1
             continue
 
-        # 其它行直接复制
         out_lines.append(line)
         idx += 1
 
-    # 插入头时间戳
     ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     out_lines.insert(0, f"/* Auto-generated: {ts} */\n")
 
-    # 清理多余空行
     final, prev_empty = [], False
     for ln in out_lines:
         if not ln.strip():
@@ -165,13 +150,87 @@ def filter_a2l(in_path, out_path):
             prev_empty = False
 
     write_file(out_path, final)
+        # 比较变化并打印
+    last_path = out_path + ".last"
+    if os.path.exists(last_path):
+        original_lines = _strip_dynamic_lines(read_file(last_path))
+    else:
+        original_lines = []
 
+    original_blocks = parse_blocks(original_lines)
+    original_dict = block_dict_raw(original_blocks, original_lines)
+
+    final_stripped = _strip_dynamic_lines(final)
+    generated_blocks = parse_blocks(final_stripped)
+    generated_dict = block_dict_raw(generated_blocks, final_stripped)
+
+    original_names = set(original_dict.keys())
+    generated_names = set(generated_dict.keys())
+
+    for name in sorted(generated_names - original_names):
+        print(f"[ADDED] {name}")
+    for name in sorted(original_names - generated_names):
+        print(f"[REMOVED] {name}")
+    address_changed_count = 0
+    other_changed_count = 0
+
+    for name in sorted(original_names & generated_names):
+        old_block = original_dict[name]
+        new_block = generated_dict[name]
+
+        if old_block == new_block:
+            continue
+
+        changes = []
+        for old_line, new_line in zip(old_block, new_block):
+            old_line = old_line.strip()
+            new_line = new_line.strip()
+            if old_line == new_line:
+                continue
+            old_field = old_line.split(maxsplit=1)[0]
+            new_field = new_line.split(maxsplit=1)[0]
+            if old_field == new_field:
+                changes.append((old_field, old_line[len(old_field):].strip(), new_line[len(new_field):].strip()))
+
+        if not changes:
+            continue
+
+        printed_header = False
+        for field, old_val, new_val in changes:
+            if field == "ECU_ADDRESS":
+                if (old_val == "0x0" and new_val != "0x0") or (old_val != "0x0" and new_val == "0x0"):
+                    print(f"[CHANGED] {name}  ECU_ADDRESS {old_val} -> {new_val}")
+                    address_changed_count += 1
+                    printed_header = True
+            else:
+                if not printed_header:
+                    print(f"[CHANGED] {name}  {field} {old_val} -> {new_val}")
+                    printed_header = True
+                else:
+                    print(f"           {field} {old_val} -> {new_val}")
+        if not printed_header:
+            other_changed_count += 1
+
+    if other_changed_count:
+        print(f"[EFFECT] {other_changed_count} variables changed")
+                    
+    with open(last_path, "w", encoding="utf-8", newline='\n') as f:
+        f.writelines(final)
+
+    # ---------- 比较变化并打印 ---------- #
+def block_dict_raw(blocks, lines):
+    """构造 name -> list of lines(原始块内容)"""
+    d = {}
+    for kw, name, s, e in blocks:
+        if kw in ("MEASUREMENT", "CHARACTERISTIC"):
+            d[name] = [lines[i].rstrip() for i in range(s, e + 1)]
+    return d
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Filt A2L, Replace NO_COMPU_METHOD and write COMPU_METHOD according to variable type.\n",
         formatter_class=argparse.RawTextHelpFormatter,
-        epilog="""Usage：
+        epilog="""Usage:
   filter_a2l.py -i input.a2l -o output.a2l""",
     )
     parser.add_argument(

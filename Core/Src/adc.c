@@ -33,6 +33,7 @@ void ADC_Read_Injection(void)
     float adc_value_ch2 = (float)(ADC_IDATA2(ADC0) & 0xFFFF);
 
     // 计算实际电流值
+    //> 电流正方向为流出控制器，流入电机 <//
     //< ( 8*1.1*Inom<17> / sqrt(2)*4095 ) = 0.025832277036754 >//
     Ia = 0.025832277036754f * (adc_value_ch0 - adc_ch0_offset);
     Ib = 0.025832277036754f * (adc_value_ch1 - adc_ch1_offset);

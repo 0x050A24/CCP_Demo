@@ -2,16 +2,8 @@
 #include "main.h"
 
 volatile uint32_t DWT_Count = 0;
-volatile uint32_t TIMER1_Count = 0;
 
 uint16_t pin = 0;
-uint16_t ccr1 = 0;
-uint16_t ccr2 = 0;
-uint16_t ccr3 = 0;
-
-uint16_t receive = 0;
-uint16_t transmit = 0;
-
 
 void DWT_Init(void);
 void daq_trigger(void);
@@ -62,7 +54,7 @@ int main(void)
         Gate_state();
         ADC_Read_Regular();
         pin = gpio_input_bit_get(GPIOE, GPIO_PIN_15);
-        // DWT_Count = DWT->CYCCNT; // 读取DWT计数器
+        //DWT_Count = DWT->CYCCNT; // 读取DWT计数器
         Temperature_Protect();
     }
 }
