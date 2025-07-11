@@ -31,6 +31,7 @@ static inline void Parameter_Init(void);
 static inline void Theta_Process(void);
 static inline float wrap_theta_2pi(float theta);
 static inline float RampGenerator(RampGenerator_t *ramp);
+static inline void Set_PWM_Change_Point(float_t Ta, float_t Tb, float_t Tc, float_t pwm_arr);
 
 extern uint16_t receive;
 // SECTION - FOC Main
@@ -461,6 +462,13 @@ void Set_PWM_Duty(float_t Ta, float_t Tb, float_t Tc, float_t pwm_arr)
 #endif
 }
 
+static inline void Set_PWM_Change_Point(float_t Ta, float_t Tb, float_t Tc, float_t pwm_arr)
+{
+    TIMER_CH0CV(TIMER0) = (uint32_t)(pwm_arr * Ta);
+    TIMER_CH1CV(TIMER0) = (uint32_t)(pwm_arr * Tb);
+    TIMER_CH2CV(TIMER0) = (uint32_t)(pwm_arr * Tc);
+}
+
 static inline float Get_Theta(float Freq, float Theta)
 {
     // 电角度递推：θ += ω·Ts，ω = 2π·f
@@ -540,48 +548,48 @@ void SVPWM_Generate(float Ualpha, float Ubeta, float inv_Vdc, float pwm_arr)
     float Tb = T0 + T1;
     float Tc = Tb + T2;
 
-    float duty_a, duty_b, duty_c;
+    float Tcm1, Tcm2, Tcm3;
 
-    // 扇区映射到ABC占空比
+    // 扇区映射到ABC换相点
     switch (sector)
     {
     case 1:
-        duty_a = Tb;
-        duty_b = Ta;
-        duty_c = Tc;
+        Tcm1 = Tb;
+        Tcm2 = Ta;
+        Tcm3 = Tc;
         break;
     case 2:
-        duty_a = Ta;
-        duty_b = Tc;
-        duty_c = Tb;
+        Tcm1 = Ta;
+        Tcm2 = Tc;
+        Tcm3 = Tb;
         break;
     case 3:
-        duty_a = Ta;
-        duty_b = Tb;
-        duty_c = Tc;
+        Tcm1 = Ta;
+        Tcm2 = Tb;
+        Tcm3 = Tc;
         break;
     case 4:
-        duty_a = Tc;
-        duty_b = Tb;
-        duty_c = Ta;
+        Tcm1 = Tc;
+        Tcm2 = Tb;
+        Tcm3 = Ta;
         break;
     case 5:
-        duty_a = Tc;
-        duty_b = Ta;
-        duty_c = Tb;
+        Tcm1 = Tc;
+        Tcm2 = Ta;
+        Tcm3 = Tb;
         break;
     case 6:
-        duty_a = Tb;
-        duty_b = Tc;
-        duty_c = Ta;
+        Tcm1 = Tb;
+        Tcm2 = Tc;
+        Tcm3 = Ta;
         break;
     default:
-        duty_a = 0.5f;
-        duty_b = 0.5f;
-        duty_c = 0.5f;
+        Tcm1 = 0.5f;
+        Tcm2 = 0.5f;
+        Tcm3 = 0.5f;
         break;
     }
 
-    // 输出PWM占空比（ARR值）
-    Set_PWM_Duty(duty_a, duty_b, duty_c, pwm_arr);
+    // 输出PWM
+    Set_PWM_Change_Point(Tcm1, Tcm2, Tcm3, pwm_arr);
 }
