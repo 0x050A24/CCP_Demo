@@ -64,6 +64,7 @@ int main(void)
         pin = gpio_input_bit_get(GPIOE, GPIO_PIN_15);
         // DWT_Count = DWT->CYCCNT; // 读取DWT计数器
         Temperature_Protect();
+        printf("hello world\r\n");
     }
 }
 

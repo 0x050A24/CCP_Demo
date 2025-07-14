@@ -9,7 +9,7 @@
 /*  Gate polarity definition */
 #ifndef Encoder_Position
 #ifndef Resolver_Position
-#define Encoder_Position /* Define here */
+#define Resolver_Position /* Define here */
 #endif
 #endif
 

@@ -18,7 +18,8 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 # Set the project name
-set(CMAKE_PROJECT_NAME GD32F303VCT6)
+get_filename_component(PROJECT_FOLDER_NAME ${CMAKE_CURRENT_SOURCE_DIR} NAME)
+set(CMAKE_PROJECT_NAME ${PROJECT_FOLDER_NAME})
 
 # Include toolchain file
 include("cmake/gcc-arm-none-eabi.cmake")

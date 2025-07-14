@@ -6,7 +6,7 @@
 /*  Gate polarity definition */
 #ifndef GATE_POLARITY_HIGH_ACTIVE
 #ifndef GATE_POLARITY_LOW_ACTIVE
-#define GATE_POLARITY_LOW_ACTIVE /* Define here */
+#define GATE_POLARITY_HIGH_ACTIVE /* Define here */
 #endif
 #endif
 

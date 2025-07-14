@@ -1,22 +1,7 @@
 {
-    "VsCodeTaskButtons.showCounter": true,
-    "VsCodeTaskButtons.tasks": [
-        {
-            "label": "$(wrench) Configure",
-            "task": "CMake Configure",
-            "tooltip": "Run CMake Configure Task"
-        },
-        {
-            "label": "$(tools) Build",
-            "task": "Build",
-            "tooltip": "Run Build Task"
-        },
-        {
-            "label": "$(chip) Flash",
-            "task": "Flash",
-            "tooltip": "Run Flash Task"
-        },
-    ],
+    "C_Cpp.default.compilerPath": "arm-none-eabi-gcc.exe",
+    "C_Cpp.default.intelliSenseMode": "gcc-arm",
+    "C_Cpp.default.cStandard": "c11",
+    "C_Cpp.default.compileCommands": "${workspaceFolder}/build/compile_commands.json",
     "cortex-debug.variableUseNaturalFormat": true,
-    "C_Cpp.default.compilerPath": "arm-none-eabi-gcc.exe"
 }
