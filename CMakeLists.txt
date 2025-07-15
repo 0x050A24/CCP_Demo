@@ -139,6 +139,5 @@ target_link_libraries(${PROJECT_NAME}
 # HEX 文件用于烧录到微控制器
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
     COMMAND ${CMAKE_OBJCOPY} -O ihex $<TARGET_FILE:${PROJECT_NAME}> ${PROJECT_NAME}.hex
-    COMMENT "正在从 ELF 文件生成 HEX 烧录文件..."
     VERBATIM
 )
