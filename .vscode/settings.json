@@ -1,8 +1,17 @@
 {
+    "python.terminal.activateEnvironment": true,
+    "clangd.enabled": false,
+    "clangd.arguments": [
+        "--compile-commands-dir=build",
+        "--query-driver=**/arm-none-eabi-*",
+        "--all-scopes-completion",
+        "--header-insertion=never",
+        "--log=verbose"
+    ],
     "VsCodeTaskButtons.showCounter": true,
     "VsCodeTaskButtons.tasks": [
         {
-            "label": "$(wrench) Configure",
+            "label": "$(gear) Configure",
             "task": "CMake Configure",
             "tooltip": "Run CMake Configure Task"
         },
@@ -12,11 +21,68 @@
             "tooltip": "Run Build Task"
         },
         {
+            "label": "$(wrench) CMake Build",
+            "task": "CMake Build",
+            "tooltip": "Run CMake Build Task"
+        },
+        {
             "label": "$(chip) Flash",
             "task": "Flash",
             "tooltip": "Run Flash Task"
         },
+        {
+            "label": "$(pencil) A2L",
+            "task": "Generate A2L",
+            "tooltip": "Run Generate A2L Task"
+        },
     ],
+    "terminal.integrated.profiles.windows": {
+        "bash (MSYS2)": {
+            "path": "D:\\Program\\mysys2\\usr\bin\\bash.exe",
+            "args": [
+                "--login",
+                "-i"
+            ],
+            "env": {
+                "CHERE_INVOKING": "1",
+                "MSYSTEM": "MINGW64"
+            }
+        }
+    },
+    "commentAnchors.showCursor": true,
+    "better-comments.multilineComments": true,
+    "better-comments.tags": [
+        {
+            "tag": "#",
+            "color": "#FF2D00",
+            "strikethrough": false,
+            "underline": false,
+            "backgroundColor": "transparent",
+            "bold": false,
+            "italic": false
+        },
+        {
+            "tag": "<",
+            "color": "#3498DB"
+        },
+        {
+            "tag": "//",
+            "color": "#474747",
+            "strikethrough": true
+        },
+        {
+            "tag": ">",
+            "color": "#FF8C00"
+        },
+        {
+            "tag": "-",
+            "color": "#98C379"
+        }
+    ],
+    "terminal.integrated.defaultProfile.windows": "PowerShell",
+    "C_Cpp.default.compilerPath": "arm-none-eabi-gcc.exe",
+    "C_Cpp.default.intelliSenseMode": "gcc-arm",
+    "C_Cpp.default.cStandard": "c11",
+    "C_Cpp.default.compileCommands": "${workspaceFolder}/build/compile_commands.json",
     "cortex-debug.variableUseNaturalFormat": true,
-    "C_Cpp.default.compilerPath": "arm-none-eabi-gcc.exe"
 }
