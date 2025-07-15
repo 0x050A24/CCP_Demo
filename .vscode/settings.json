@@ -36,19 +36,6 @@
             "tooltip": "Run Generate A2L Task"
         },
     ],
-    "terminal.integrated.profiles.windows": {
-        "bash (MSYS2)": {
-            "path": "D:\\Program\\mysys2\\usr\bin\\bash.exe",
-            "args": [
-                "--login",
-                "-i"
-            ],
-            "env": {
-                "CHERE_INVOKING": "1",
-                "MSYSTEM": "MINGW64"
-            }
-        }
-    },
     "commentAnchors.showCursor": true,
     "better-comments.multilineComments": true,
     "better-comments.tags": [
