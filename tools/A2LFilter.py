@@ -456,13 +456,13 @@ A2L 文件是汽车ECU标定中使用的标准描述文件格式""",
         "-i", "--input", 
         dest="input", 
         required=True, 
-        help="输入的 A2L 文件路径"
+        help="input A2L file path"
     )
     parser.add_argument(
         "-o", "--output", 
         dest="output", 
         required=True, 
-        help="输出的 A2L 文件路径"
+        help="output A2L file path"
     )
     
     # 解析命令行参数
@@ -470,7 +470,7 @@ A2L 文件是汽车ECU标定中使用的标准描述文件格式""",
     
     # 检查输入文件是否存在
     if not os.path.exists(args.input):
-        print(f"错误: 输入文件 '{args.input}' 不存在")
+        print(f"[ERROR]: input file '{args.input}' does not exist")
         sys.exit(1)
     
     # 确保输出目录存在
@@ -480,9 +480,7 @@ A2L 文件是汽车ECU标定中使用的标准描述文件格式""",
     
     # 执行 A2L 文件过滤
     try:
-        print(f"开始处理 A2L 文件: {args.input}")
         filter_a2l(args.input, args.output)
-        print(f"处理完成，输出文件: {args.output}")
     except Exception as e:
-        print(f"处理过程中发生错误: {e}")
+        print(f"Error occur: {e}")
         sys.exit(1)
