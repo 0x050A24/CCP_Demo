@@ -72,4 +72,11 @@
     "C_Cpp.default.cStandard": "c11",
     "C_Cpp.default.compileCommands": "${workspaceFolder}/build/compile_commands.json",
     "cortex-debug.variableUseNaturalFormat": true,
+    "files.associations": {
+        "main.h": "c",
+        "gd32f30x.h": "c",
+        "cstring": "c",
+        "variant": "c",
+        "cstdlib": "c"
+    },
 }

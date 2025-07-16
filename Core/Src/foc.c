@@ -29,7 +29,11 @@ static inline void Parameter_Init(void);
 static inline void Theta_Process(void);
 static inline float wrap_theta_2pi(float theta);
 static inline float RampGenerator(RampGenerator_t *ramp);
+static inline void ClarkeTransform(float_t Ia, float_t Ib, float_t Ic, Clarke_t *out);
+static inline void ParkTransform(float_t Ialpha, float_t Ibeta, float_t theta, Park_t *out);
+static inline void InvParkTransform(float_t Ud, float_t Uq, float_t theta, InvPark_t *out);
 static inline void Set_PWM_Change_Point(float_t Ta, float_t Tb, float_t Tc, float_t pwm_arr);
+static inline void SVPWM_Generate(float Ualpha, float Ubeta, float inv_Vdc, float pwm_arr);
 
 // SECTION - FOC Main
 void FOC_Main(void)
@@ -95,7 +99,7 @@ void FOC_Main(void)
     }
     // !SECTION
     // SECTION - Speed Mode
-    case Speed_Mode:
+    case Speed:
     {
 
         ParkTransform(Clarke.Ialpha, Clarke.Ibeta, FOC.Theta, &Park);
@@ -129,6 +133,16 @@ void FOC_Main(void)
         FOC.Iq_ref = 0.0f;                              // Iq_ref = Speed_PID.output
         FOC.Ud_ref = 0.0f;
         FOC.Uq_ref = 0.0f;
+
+        break;
+    }
+    // SECTION - Identify Mode
+    case Identify:
+    {
+        ParkTransform(Clarke.Ialpha, Clarke.Ibeta, FOC.Theta, &Park);
+        SquareWaveGenerater(&VoltageInjector, &Park);
+        FOC.Ud_ref = VoltageInjector.Vd;
+        FOC.Uq_ref = VoltageInjector.Vq;
 
         break;
     }
@@ -248,7 +262,7 @@ void Parameter_Init(void)
     Speed_PID.integral = 0.0f;
     Speed_PID.output = 0.0f;
     Speed_PID.Ts = T_2kHz;
-    
+
     Speed_Ramp.slope = 50.0f; // limit to 50 rpm/s
     Speed_Ramp.limit_min = -1800.0f;
     Speed_Ramp.limit_max = 1800.0f;
@@ -393,7 +407,7 @@ static inline float RampGenerator(RampGenerator_t *ramp)
         ramp->value = 0.0f;
         ramp->target = 0.0f;
     }
-    
+
     float delta = ramp->target - ramp->value;
     float step = ramp->slope * ramp->Ts;
 
@@ -419,7 +433,7 @@ static inline float RampGenerator(RampGenerator_t *ramp)
 }
 // !SECTION
 
-void ClarkeTransform(float_t Ia, float_t Ib, float_t Ic, Clarke_t *out)
+static inline void ClarkeTransform(float_t Ia, float_t Ib, float_t Ic, Clarke_t *out)
 {
 #if (defined(TWO_PHASE_CURRENT_SENSING))
     out->Ialpha = Ia;
@@ -430,7 +444,7 @@ void ClarkeTransform(float_t Ia, float_t Ib, float_t Ic, Clarke_t *out)
 #endif
 }
 
-void ParkTransform(float_t Ialpha, float_t Ibeta, float_t theta, Park_t *out)
+static inline void ParkTransform(float_t Ialpha, float_t Ibeta, float_t theta, Park_t *out)
 {
     float cos_theta = COS(theta);
     float sin_theta = SIN(theta);
@@ -438,7 +452,7 @@ void ParkTransform(float_t Ialpha, float_t Ibeta, float_t theta, Park_t *out)
     out->Iq = -Ialpha * sin_theta + Ibeta * cos_theta;
 }
 
-void InvParkTransform(float_t Ud, float_t Uq, float_t theta, InvPark_t *out)
+static inline void InvParkTransform(float_t Ud, float_t Uq, float_t theta, InvPark_t *out)
 {
     float cos_theta = COS(theta);
     float sin_theta = SIN(theta);
@@ -477,7 +491,7 @@ static inline float Get_Theta(float Freq, float Theta)
     return Theta;
 }
 
-void SVPWM_Generate(float Ualpha, float Ubeta, float inv_Vdc, float pwm_arr)
+static inline void SVPWM_Generate(float Ualpha, float Ubeta, float inv_Vdc, float pwm_arr)
 {
     uint8_t sector = 0;
     float Vref1 = Ubeta;

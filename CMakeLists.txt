@@ -43,8 +43,6 @@ include("cmake/gcc-arm-none-eabi.cmake")
 
 # 声明项目
 project(${CMAKE_PROJECT_NAME})
-message("-- 项目名称: ${CMAKE_PROJECT_NAME}")
-message("-- 构建类型: ${CMAKE_BUILD_TYPE}")
 
 # 启用 C 和汇编语言支持
 enable_language(C ASM)
@@ -58,7 +56,7 @@ add_executable(${PROJECT_NAME})
 
 # 为主目标添加预处理器定义
 target_compile_definitions(${PROJECT_NAME} PRIVATE
-    ARM_MATH_CM4    # 启用 ARM Cortex-M4 的数学库优化
+    ARM_MATH_CM4 # 启用 ARM Cortex-M4 的数学库优化
     __FPU_PRESENT=1 # 声明存在浮点运算单元 (FPU)
 )
 
@@ -77,17 +75,19 @@ add_subdirectory(cmake/GigaFirmware)
 # 创建 CMSIS-DSP 静态库
 # 仅包含项目中实际使用的数学函数，减少编译时间和固件大小
 add_library(CMSISDSP STATIC
+
     # 快速数学函数
     ${CMAKE_SOURCE_DIR}/Drivers/CMSIS/CMSIS-DSP/Source/FastMathFunctions/arm_sin_f32.c
     ${CMAKE_SOURCE_DIR}/Drivers/CMSIS/CMSIS-DSP/Source/FastMathFunctions/arm_cos_f32.c
+
     # 公共数据表（包含三角函数查找表等）
     ${CMAKE_SOURCE_DIR}/Drivers/CMSIS/CMSIS-DSP/Source/CommonTables/arm_common_tables.c
 )
 
 # 为 CMSIS-DSP 库配置包含目录
 target_include_directories(CMSISDSP PUBLIC
-    ${CMAKE_SOURCE_DIR}/Drivers/CMSIS/CMSIS-DSP/Include  # CMSIS-DSP 头文件
-    ${CMAKE_SOURCE_DIR}/Drivers/CMSIS/Core/Include       # CMSIS 核心头文件
+    ${CMAKE_SOURCE_DIR}/Drivers/CMSIS/CMSIS-DSP/Include # CMSIS-DSP 头文件
+    ${CMAKE_SOURCE_DIR}/Drivers/CMSIS/Core/Include # CMSIS 核心头文件
 )
 
 # ==============================================================================
@@ -96,7 +96,7 @@ target_include_directories(CMSISDSP PUBLIC
 
 # 为主可执行文件配置头文件搜索路径
 target_include_directories(${PROJECT_NAME} PRIVATE
-    ${CMAKE_SOURCE_DIR}/Drivers/CMSIS/Core/Include      # CMSIS 核心接口
+    ${CMAKE_SOURCE_DIR}/Drivers/CMSIS/Core/Include # CMSIS 核心接口
     ${CMAKE_SOURCE_DIR}/Drivers/CMSIS/GD/GD32F30x/Include # GD32F30x 特定头文件
 )
 
@@ -107,18 +107,20 @@ target_include_directories(${PROJECT_NAME} PRIVATE
 # 添加应用程序核心源文件
 # 这些是项目的主要功能模块
 target_sources(${PROJECT_NAME} PRIVATE
+
     # 外设驱动模块
-    Core/Src/usart.c         # UART 串口通信
-    Core/Src/gpio.c          # GPIO 引脚控制
-    Core/Src/can.c           # CAN 总线通信
-    Core/Src/tim.c           # 定时器配置与控制
-    Core/Src/adc.c           # ADC 模数转换
-    Core/Src/dma.c           # DMA 直接内存访问
-    
+    Core/Src/usart.c # UART 串口通信
+    Core/Src/gpio.c # GPIO 引脚控制
+    Core/Src/can.c # CAN 总线通信
+    Core/Src/tim.c # 定时器配置与控制
+    Core/Src/adc.c # ADC 模数转换
+    Core/Src/dma.c # DMA 直接内存访问
+
     # 应用功能模块
-    Core/Src/foc.c           # FOC 电机控制算法
+    Core/Src/foc.c # FOC 电机控制算法
     Core/Src/position_sensor.c # 位置传感器处理
-    Core/Src/temp_table.c    # 温度查找表
+    Core/Src/temp_table.c # 温度查找表
+    Core/Src/injection.c
 )
 
 # ==============================================================================
@@ -127,8 +129,8 @@ target_sources(${PROJECT_NAME} PRIVATE
 
 # 链接必要的库到主可执行文件
 target_link_libraries(${PROJECT_NAME}
-    GigaFirmware    # 自定义固件库
-    CMSISDSP        # CMSIS 数学函数库
+    GigaFirmware # 自定义固件库
+    CMSISDSP # CMSIS 数学函数库
 )
 
 # ==============================================================================
@@ -140,4 +142,8 @@ target_link_libraries(${PROJECT_NAME}
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
     COMMAND ${CMAKE_OBJCOPY} -O ihex $<TARGET_FILE:${PROJECT_NAME}> ${PROJECT_NAME}.hex
     VERBATIM
+)
+
+target_link_options(${PROJECT_NAME} PRIVATE
+    -Wl,--no-warn-rwx-segment
 )

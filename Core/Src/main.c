@@ -24,7 +24,9 @@ int main(void)
     TIM1_Init(); // TIM1 provides delay_us
     DWT_Init();
     /* initialize Serial port */
+    //< For USART DMA, USART must be initialized before DMA >//
     USART_Init(&husart0);
+    USART_DMA_Init();
     /* initialize GPIO */
     GPIO_Init(GPIOD, &GPIOD_InitStruct);
     GPIO_Init(GPIOB, &GPIOB_InitStruct);
@@ -37,7 +39,8 @@ int main(void)
     /* initialize external interrupt */
     EXIT_Config();
     /* initialize ADC */
-    DMA_Init();
+    //< For ADC DMA, DMA must be initialized before ADC >//
+    ADC_DMA_Init();
     ADC_Init();
     /* initialize CAN and CCP */
     CAN_Init(&hcan0);
@@ -56,6 +59,10 @@ int main(void)
         pin = gpio_input_bit_get(GPIOE, GPIO_PIN_15);
         //DWT_Count = DWT->CYCCNT; // 读取DWT计数器
         Temperature_Protect();
+        usart_txbuffer[0] = (uint32_t)(0x01234567); // 温度数据
+        usart_txbuffer[1] = (uint32_t)(0xFEDCBA98); //
+        USART_DMA_Send(8);
+        delay_ms(1);
     }
 }
 
