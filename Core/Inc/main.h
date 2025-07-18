@@ -34,18 +34,6 @@ OF SUCH DAMAGE.
 
 #ifndef MAIN_H
 #define MAIN_H
-#include <stdio.h>
-#include "gd32f30x.h"
-#include "systick.h"
-#include "usart.h"
-#include "can.h"
-#include "ccp_interface.h"
-#include "math.h"
-#include "tim.h"
-#include "gpio.h"
-#include "foc.h"
-#include "adc.h"
-#include "delay.h"
-#include "dma.h"
-#include "position_sensor.h"
+#include <stdbool.h>
+
 #endif /* MAIN_H */

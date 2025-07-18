@@ -12,8 +12,9 @@
 /*---------------------------------------------------------------------------    */
 #ifndef __CCP_INTERFACE_H_
 #define __CCP_INTERFACE_H_
-#include "ccp.h"
-#include "can.h"
+//< this is embrella header >//
+#include "ccp.h" // IWYU pragma: export
+#include "can.h" // IWYU pragma: export
 
 extern void ccpSend(CCP_BYTEPTR msg);
 void process_can_rx_buffer(void);

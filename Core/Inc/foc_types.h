@@ -37,7 +37,7 @@ typedef struct
     uint16_t Position_Scale;
     float Resolver_Pn;
     float inv_MotorPn;
-    float Positon_Offset; // Zero Position
+    float Position_Offset; // Zero Position
 } Motor_Parameter_t;
 
 typedef struct
@@ -91,7 +91,9 @@ typedef struct
     float Id_ref;
     float Iq_ref;
     float PWM_ARR; /* PWM period */
-    FOC_Mode Mode;   // 当前控制模式
+    float Ts;
+    float f;
+    FOC_Mode Mode; // 当前控制模式
 } FOC_Parameter_t;
 
 typedef struct
@@ -111,8 +113,5 @@ typedef struct
     float Ualpha;
     float Ubeta;
 } InvPark_t;
-
-
-
 
 #endif /* _FOC_TYPES_H_ */

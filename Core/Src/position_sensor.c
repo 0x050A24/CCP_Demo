@@ -6,10 +6,15 @@ uint8_t Resolver_Fault = 0;
 ErrStatus AD2S1210_Config = ERROR;
 ErrStatus AD2S1210_Ready = ERROR;
 
+#ifdef Resolver_Position
 static inline void SPI_Init(void);
 static inline void AD2S1210_Init(void);
-static inline void Encoder_Init(void);
 static inline uint8_t spi_send_receive_byte(uint32_t spi_periph, uint8_t byte);
+#endif
+#ifdef Encoder_Position
+static inline void Encoder_Init(void);
+#endif
+
 
 void Position_Sensor_Init(void)
 {
@@ -50,7 +55,7 @@ void ReadPosition(void)
     Position_Data = TIMER_CNT(TIMER3);
 #endif
 }
-
+#ifdef Resolver_Position
 static inline void SPI_Init(void)
 {
     spi_parameter_struct spi_init_struct;
@@ -187,6 +192,7 @@ static inline uint8_t spi_send_receive_byte(uint32_t spi_periph, uint8_t byte)
     /* 返回接收到的字节 */
     return spi_i2s_data_receive(spi_periph);
 }
+#endif
 
 static inline void Encoder_Init(void)
 {

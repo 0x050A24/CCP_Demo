@@ -1,7 +1,7 @@
 #ifndef _USART_H
 #define _USART_H
 
-#include "gd32f30x.h"
+#include "gd32f30x.h" // IWYU pragma: export
 #include <unistd.h>
 
 /* 定义一个 USART 句柄结构体 */

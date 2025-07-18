@@ -3,42 +3,35 @@
 VoltageInjector_t VoltageInjector = {
     .State = DISABLE,
     .Count = 0,
-    .Vd = 0.0f,
-    .Vq = 0.0f,
-    .Imax = 5.0f // Maximum current for voltage injection
+    .Vd = 0.0F,
+    .Vq = 0.0F,
+    .Imax = 0.0F  // Maximum current for voltage injection
 };
 
-void SquareWaveGenerater(VoltageInjector_t *inj, Park_t *park)
-{
-    if (inj->State == ENABLE)
-    {
-        float ud = 0.0f;
-        float uq = 0.0f;
+void SquareWaveGenerater(VoltageInjector_t* inj, Park_t* park) {
+    if (inj->State == ENABLE) {
+        float ud = 0.0F;
+        float uq = 0.0F;
 
-        if (park->Id >= inj->Imax && inj->Vd >= 0.0f)
-        {
-            ud = -inj->Ud_amp;
+        // Ud 分量判断
+        if (inj->Vd >= 0.0F) {
+            ud = (park->Id >= inj->Imax) ? -inj->Ud_amp : inj->Ud_amp;
+        } else {
+            ud = (park->Id <= -inj->Imax) ? inj->Ud_amp : -inj->Ud_amp;
         }
-        else if (park->Id <= -inj->Imax && inj->Vd < 0.0f)
-        {
-            ud = inj->Ud_amp;
+
+        // Uq 分量判断
+        if (inj->Vq >= 0.0F) {
+            uq = (park->Iq >= inj->Imax) ? -inj->Uq_amp : inj->Uq_amp;
+        } else {
+            uq = (park->Iq <= -inj->Imax) ? inj->Uq_amp : -inj->Uq_amp;
         }
-        else if (park->Id < inj->Imax && inj->Vd >= 0.0f)
-        {
-            ud = inj->Ud_amp;
-        }
-        else if (park->Id > -inj->Imax && inj->Vd < 0.0f)
-        {
-            ud = -inj->Ud_amp;
-        }
+
         inj->Vd = ud;
         inj->Vq = uq;
         inj->Count++;
-    }
-    else
-    {
-        inj->Vd = 0.0f;
-        inj->Vq = 0.0f;
-        inj->Count = 0;
+    } else {
+        inj->Vd = 0.0F;
+        inj->Vq = 0.0F;
     }
 }

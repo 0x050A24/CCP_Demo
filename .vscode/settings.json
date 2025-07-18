@@ -1,6 +1,6 @@
 {
     "python.terminal.activateEnvironment": true,
-    "clangd.enabled": false,
+    "clangd.enabled": true,
     "clangd.arguments": [
         "--compile-commands-dir=build",
         "--query-driver=**/arm-none-eabi-*",
@@ -8,6 +8,16 @@
         "--header-insertion=never",
         "--log=verbose"
     ],
+    "C_Cpp.default.compilerPath": "arm-none-eabi-gcc.exe",
+    "C_Cpp.default.intelliSenseMode": "gcc-arm",
+    "C_Cpp.default.cStandard": "c11",
+    "C_Cpp.default.compileCommands": "${workspaceFolder}/build/compile_commands.json",
+    "C_Cpp.codeAnalysis.clangTidy.enabled": true,
+    "C_Cpp.codeAnalysis.clangTidy.useBuildPath": true,
+    "C_Cpp.codeAnalysis.clangTidy.path": "clang-tidy",
+    "C_Cpp.codeAnalysis.clangTidy.config": "file",
+    "C_Cpp.clang_format_path": "clang-format",
+    "C_Cpp.clang_format_style": "file",
     "VsCodeTaskButtons.showCounter": true,
     "VsCodeTaskButtons.tasks": [
         {
@@ -67,10 +77,6 @@
         }
     ],
     "terminal.integrated.defaultProfile.windows": "PowerShell",
-    "C_Cpp.default.compilerPath": "arm-none-eabi-gcc.exe",
-    "C_Cpp.default.intelliSenseMode": "gcc-arm",
-    "C_Cpp.default.cStandard": "c11",
-    "C_Cpp.default.compileCommands": "${workspaceFolder}/build/compile_commands.json",
     "cortex-debug.variableUseNaturalFormat": true,
     "files.associations": {
         "main.h": "c",

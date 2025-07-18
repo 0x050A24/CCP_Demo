@@ -75,7 +75,7 @@ def write_file(path: str, lines: List[str]) -> bool:
         lines: 要写入的内容行列表
         
     Returns:
-        True 如果内容发生了变化，False 如果内容相同
+        True 如果内容发生了变化, False 如果内容相同
     """
     new_lines_cleaned = _strip_dynamic_lines(lines)
     last_path = path + ".last"

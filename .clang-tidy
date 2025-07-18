@@ -1,0 +1,13 @@
+Checks: >
+  -*,
+  clang-analyzer-*,
+  bugprone-*,
+  performance-*,
+  google-*,
+  cppcoreguidelines-*,
+  misc-unused-parameters,
+  misc-unused-using-decls,
+  -performance-no-int-to-ptr,
+  -cppcoreguidelines-avoid-non-const-global-variables,
+  -bugprone-easily-swappable-parameters,
+  -cppcoreguidelines-avoid-magic-numbers

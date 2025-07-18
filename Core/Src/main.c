@@ -1,9 +1,20 @@
+#include "main.h" // IWYU pragma: export
+#include "position_sensor.h"
+#include "dma.h"
 
-#include "main.h"
+#include "gd32f30x.h"
+#include "systick.h"
+#include "usart.h"
+#include "can.h"
+#include "ccp_interface.h"
+#include "tim.h"
+#include "gpio.h"
+#include "foc.h"
+#include "adc.h"
 
 volatile uint32_t DWT_Count = 0;
 
-uint16_t pin = 0;
+bool pin = false;
 
 void DWT_Init(void);
 void daq_trigger(void);
@@ -31,7 +42,6 @@ int main(void)
     GPIO_Init(GPIOD, &GPIOD_InitStruct);
     GPIO_Init(GPIOB, &GPIOB_InitStruct);
     GPIO_Init(GPIOE, &GPIOE_InitStruct);
-
     /* initialize Position_Sensor */
     Position_Sensor_Init();
     /* initialize Timer */
@@ -59,10 +69,6 @@ int main(void)
         pin = gpio_input_bit_get(GPIOE, GPIO_PIN_15);
         //DWT_Count = DWT->CYCCNT; // 读取DWT计数器
         Temperature_Protect();
-        usart_txbuffer[0] = (uint32_t)(0x01234567); // 温度数据
-        usart_txbuffer[1] = (uint32_t)(0xFEDCBA98); //
-        USART_DMA_Send(8);
-        delay_ms(1);
     }
 }
 

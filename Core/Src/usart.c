@@ -2,7 +2,7 @@
 
 USART_HandleTypeDef husart0 = {
     .Instance = USART0,          // USART 外设
-    .BaudRate = 1152000U,         // 波特率
+    .BaudRate = 921600U,         // 波特率
     .WordLength = USART_WL_8BIT, // 数据位：8位
     .StopBits = USART_STB_1BIT,  // 停止位：1位
     .Parity = USART_PM_NONE,     // 校验位：无校验

@@ -1,6 +1,8 @@
 #include "adc.h"
 #include "dma.h"
 #include "temp_table.h"
+#include "gd32f30x.h"
+#include "systick.h"
 float Udc = 0.0f;
 float Ia = 0.0f;
 float Ib = 0.0f;
