@@ -16,6 +16,6 @@ typedef struct
 
 extern VoltageInjector_t VoltageInjector;
 
-void SquareWaveGenerater(VoltageInjector_t *inj, Park_t *park);
+void SquareWaveGenerater(VoltageInjector_t *inj, FOC_Parameter_t *foc);
 
 #endif

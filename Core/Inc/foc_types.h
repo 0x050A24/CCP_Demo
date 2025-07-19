@@ -1,7 +1,7 @@
 #ifndef _FOC_TYPES_H_
 #define _FOC_TYPES_H_
-
-#include "gd32f30x.h"
+#include "gd32f30x.h"  // Only for ControlStatus definition
+#include "stdint.h"
 
 /*    Type Definitions   */
 typedef enum
@@ -19,12 +19,12 @@ typedef enum
 typedef enum
 {
     No_Protect = 0,
-    Over_Current = 1 << 0,         // 0b0001
-    Over_Maximum_Current = 1 << 1, // 0b0010
-    Over_Voltage = 1 << 2,         // 0b0100
-    Low_Voltage = 1 << 3,          // 0b1000
-    Hardware_Fault = 1 << 4,       // 0b10000
-    Over_Heat = 1 << 5             // 0b100000
+    Over_Current = 1 << 0,          // 0b0001
+    Over_Maximum_Current = 1 << 1,  // 0b0010
+    Over_Voltage = 1 << 2,          // 0b0100
+    Low_Voltage = 1 << 3,           // 0b1000
+    Hardware_Fault = 1 << 4,        // 0b10000
+    Over_Heat = 1 << 5              // 0b100000
 } Protect_Flags;
 
 typedef struct
@@ -37,7 +37,7 @@ typedef struct
     uint16_t Position_Scale;
     float Resolver_Pn;
     float inv_MotorPn;
-    float Position_Offset; // Zero Position
+    float Position_Offset;  // Zero Position
 } Motor_Parameter_t;
 
 typedef struct
@@ -65,8 +65,8 @@ typedef struct
 
 typedef struct
 {
-    float value; // output value
-    float slope; // Δvalue/s
+    float value;  // output value
+    float slope;  // Δvalue/s
     float limit_min;
     float limit_max;
     float target;
@@ -84,8 +84,16 @@ typedef struct
 
 typedef struct
 {
-    float Theta; /* Electrical angle (rad) */
-    float Speed; /* Speed (rpm) */
+    float Ia;
+    float Ib;
+    float Ic;
+    float Id;
+    float Iq;
+    float Udc;
+    float inv_Udc;
+    uint16_t Position;  // position sensor usually up to 16bits resolution
+    float Theta;        /* Electrical angle (rad) */
+    float Speed;        /* Speed (rpm) */
     float Ud_ref;
     float Uq_ref;
     float Id_ref;
@@ -93,7 +101,7 @@ typedef struct
     float PWM_ARR; /* PWM period */
     float Ts;
     float f;
-    FOC_Mode Mode; // 当前控制模式
+    FOC_Mode Mode;  // 当前控制模式
 } FOC_Parameter_t;
 
 typedef struct
@@ -102,16 +110,24 @@ typedef struct
     float Ibeta;
 } Clarke_t;
 
-typedef struct
-{
-    float Id;
-    float Iq;
-} Park_t;
+// struct Park_t is commented out as struct FOC_Parameter_t takes care of Id and Iq
+// typedef struct
+// {
+//     float Id;
+//     float Iq;
+// } Park_t;
 
 typedef struct
 {
     float Ualpha;
     float Ubeta;
 } InvPark_t;
+
+typedef struct
+{
+    float Tcm1;
+    float Tcm2;
+    float Tcm3;
+} SVPWM_t;
 
 #endif /* _FOC_TYPES_H_ */

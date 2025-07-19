@@ -56,18 +56,32 @@
 #define T_200Hz 0.005F         /* T 200Hz */
 #define T_10kHz 0.0001F        /* 10kHz sampling time */
 
-/*======================*/
-/*    Function Protos   */
-/*======================*/
-extern volatile uint16_t STOP;
+
+// Since CCP demanded struct FOC is Global Variable, make it visible to main ISR //
+extern SVPWM_t SVPWM;
 extern FOC_Parameter_t FOC;
 
-void Gate_state(void);
+
 void FOC_Main(void);
 
-void Set_PWM_Duty(float_t Tch1, float_t Tch2, float_t Tch3, float_t pwm_arr);
-void PID_Controller(float setpoint, float measured_value,
-                    PID_Controller_t *PID_Controller);
-void Temperature_Protect(void);
+void FOC_UpdateMainFrequency(float f, float Ts, float PWM_ARR);
+
+static inline void FOC_UpdateCurrent(float Ia, float Ib, float Ic)
+{
+    FOC.Ia = Ia;
+    FOC.Ib = Ib;
+    FOC.Ic = Ic;
+}
+
+static inline void FOC_UpdateVoltage(float Udc, float inv_Udc)
+{
+    FOC.Udc = Udc;
+    FOC.inv_Udc = inv_Udc;
+}
+
+static inline void FOC_UpdatePosition(uint16_t Position)
+{
+    FOC.Position = Position;
+}
 
 #endif /* _FOC_H_ */

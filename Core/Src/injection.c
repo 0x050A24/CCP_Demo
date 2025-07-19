@@ -8,23 +8,23 @@ VoltageInjector_t VoltageInjector = {
     .Imax = 0.0F  // Maximum current for voltage injection
 };
 
-void SquareWaveGenerater(VoltageInjector_t* inj, Park_t* park) {
+void SquareWaveGenerater(VoltageInjector_t* inj, FOC_Parameter_t* foc) {
     if (inj->State == ENABLE) {
         float ud = 0.0F;
         float uq = 0.0F;
 
         // Ud 分量判断
         if (inj->Vd >= 0.0F) {
-            ud = (park->Id >= inj->Imax) ? -inj->Ud_amp : inj->Ud_amp;
+            ud = (foc->Id >= inj->Imax) ? -inj->Ud_amp : inj->Ud_amp;
         } else {
-            ud = (park->Id <= -inj->Imax) ? inj->Ud_amp : -inj->Ud_amp;
+            ud = (foc->Id <= -inj->Imax) ? inj->Ud_amp : -inj->Ud_amp;
         }
 
         // Uq 分量判断
         if (inj->Vq >= 0.0F) {
-            uq = (park->Iq >= inj->Imax) ? -inj->Uq_amp : inj->Uq_amp;
+            uq = (foc->Iq >= inj->Imax) ? -inj->Uq_amp : inj->Uq_amp;
         } else {
-            uq = (park->Iq <= -inj->Imax) ? inj->Uq_amp : -inj->Uq_amp;
+            uq = (foc->Iq <= -inj->Imax) ? inj->Uq_amp : -inj->Uq_amp;
         }
 
         inj->Vd = ud;

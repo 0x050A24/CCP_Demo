@@ -1,7 +1,7 @@
 #include "main.h" // IWYU pragma: export
 #include "position_sensor.h"
 #include "dma.h"
-
+#include "foc_interface.h"
 #include "gd32f30x.h"
 #include "systick.h"
 #include "usart.h"
@@ -9,7 +9,6 @@
 #include "ccp_interface.h"
 #include "tim.h"
 #include "gpio.h"
-#include "foc.h"
 #include "adc.h"
 
 volatile uint32_t DWT_Count = 0;
@@ -17,6 +16,7 @@ volatile uint32_t DWT_Count = 0;
 bool pin = false;
 
 void DWT_Init(void);
+void Temperature_Protect(void);
 void daq_trigger(void);
 void nvic_config(void);
 void EXIT_Config(void);
@@ -64,8 +64,8 @@ int main(void)
         process_can_rx_buffer();
         daq_trigger();
         ccpSendCallBack();
-        Gate_state();
-        ADC_Read_Regular();
+        Interface_GateState();
+
         pin = gpio_input_bit_get(GPIOE, GPIO_PIN_15);
         //DWT_Count = DWT->CYCCNT; // 读取DWT计数器
         Temperature_Protect();
@@ -119,4 +119,17 @@ void DWT_Init(void)
     CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk; // 使能DWT模块
     DWT->CYCCNT = 0;                                // 清零
     DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;            // 启用CYCCNT
+}
+
+void Temperature_Protect(void)
+{
+    if (Temperature > 30.0F)
+    {
+        gpio_bit_set(FAN_OPEN_PORT, FAN_OPEN_PIN);
+    }
+    if (Temperature > 80.0F)
+    {
+        STOP = 1;
+        Protect_Flag |= Over_Heat;
+    }
 }

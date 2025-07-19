@@ -114,3 +114,13 @@ static inline uint8_t calculate_deadtime_value(uint32_t deadtime_ns, uint32_t ti
         return 0xFF;  // Max
     }
 }
+
+void cal_fmain(float *f, float *Ts, float *PWM_ARR)
+{
+    float prescaler = TIMER_PSC(TIMER0) + 1.0F;
+    float timer_clk = (float)SystemCoreClock / prescaler;
+    float counter_mode = ((TIMER_CTL0(TIMER0) & TIMER_CTL0_CAM) >> 5) == 0 ? 1.0F : 2.0F;
+    *f = (timer_clk / (TIMER_CAR(TIMER0) + 1.0F) / counter_mode);
+    *PWM_ARR = (uint16_t)(TIMER_CAR(TIMER0) + 1);
+    *Ts = 1.0F / *f;  // Main loop time
+}

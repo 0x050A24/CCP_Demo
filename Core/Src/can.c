@@ -86,7 +86,7 @@ CAN_StatusTypeDef CAN_Init(CAN_HandleTypeDef *hcan)
     cp.resync_jump_width = CAN_BT_SJW_1TQ;
     cp.time_segment_1 = CAN_BT_BS1_7TQ;
     cp.time_segment_2 = CAN_BT_BS2_2TQ;
-    cp.prescaler = rcu_clock_freq_get(CK_APB1) * 0.001 / (init->BaudrateKbps * (1 + 7 + 2)); // 60MHz APB1
+    cp.prescaler = (uint16_t)(rcu_clock_freq_get(CK_APB1) * 0.001 / (init->BaudrateKbps * (1 + 7 + 2))); // 60MHz APB1
     cp.auto_bus_off_recovery = ENABLE;
     cp.auto_retrans = ENABLE;
     cp.auto_wake_up = DISABLE;

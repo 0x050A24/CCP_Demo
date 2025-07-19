@@ -121,6 +121,7 @@ target_sources(${PROJECT_NAME} PRIVATE
     Core/Src/position_sensor.c # 位置传感器处理
     Core/Src/temp_table.c # 温度查找表
     Core/Src/injection.c
+    Core/Src/foc_interface.c
 )
 
 # ==============================================================================
