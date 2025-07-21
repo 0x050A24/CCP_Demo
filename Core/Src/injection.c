@@ -1,7 +1,7 @@
 #include "injection.h"
 
 VoltageInjector_t VoltageInjector = {
-    .State = DISABLE,
+    .State = Disable,
     .Count = 0,
     .Vd = 0.0F,
     .Vq = 0.0F,
@@ -9,7 +9,7 @@ VoltageInjector_t VoltageInjector = {
 };
 
 void SquareWaveGenerater(VoltageInjector_t* inj, FOC_Parameter_t* foc) {
-    if (inj->State == ENABLE) {
+    if (inj->State == Enable) {
         float ud = 0.0F;
         float uq = 0.0F;
 

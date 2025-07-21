@@ -114,7 +114,6 @@ target_sources(${PROJECT_NAME} PRIVATE
     Core/Src/can.c # CAN 总线通信
     Core/Src/tim.c # 定时器配置与控制
     Core/Src/adc.c # ADC 模数转换
-    Core/Src/dma.c # DMA 直接内存访问
 
     # 应用功能模块
     Core/Src/foc.c # FOC 电机控制算法

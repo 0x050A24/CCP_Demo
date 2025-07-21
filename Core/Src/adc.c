@@ -1,12 +1,12 @@
 #include "adc.h"
-#include "dma.h"
 #include "gd32f30x.h"
 #include "systick.h"
 #include "temp_table.h"
 
-uint32_t dc_raw = 0; //may need to be modified though CCP
 float Temperature = 0.0f;
 
+static uint32_t dc_raw = 0; //may need to be modified though CCP
+static uint32_t adc_value[2]; // Regular ADC Channel Buffer
 static float adc_ch0_offset = 0;
 static float adc_ch1_offset = 0;
 static float adc_ch2_offset = 0;
@@ -102,4 +102,32 @@ void ADC_Init(void)
 
     /* 触发规则通道 */
     adc_software_trigger_enable(ADC0, ADC_REGULAR_CHANNEL);  // 触发一次即开始连续采样
+}
+
+void ADC_DMA_Init(void)
+{
+    /* ADC_DMA_channel configuration */
+    dma_parameter_struct dma_data_parameter;
+
+    rcu_periph_clock_enable(RCU_DMA0);
+
+    /* ADC_DMA_channel deinit */
+    dma_deinit(DMA0, DMA_CH0);
+
+    /* initialize DMA single data mode */
+    dma_data_parameter.periph_addr = (uint32_t)(&ADC_RDATA(ADC0));
+    dma_data_parameter.periph_inc = DMA_PERIPH_INCREASE_DISABLE;
+    dma_data_parameter.memory_addr = (uint32_t)(adc_value);
+    dma_data_parameter.memory_inc = DMA_MEMORY_INCREASE_ENABLE;
+    dma_data_parameter.periph_width = DMA_PERIPHERAL_WIDTH_32BIT;
+    dma_data_parameter.memory_width = DMA_MEMORY_WIDTH_32BIT;
+    dma_data_parameter.direction = DMA_PERIPHERAL_TO_MEMORY;
+    dma_data_parameter.number = 2;
+    dma_data_parameter.priority = DMA_PRIORITY_HIGH;
+    dma_init(DMA0, DMA_CH0, &dma_data_parameter);
+
+    dma_circulation_enable(DMA0, DMA_CH0);
+
+    /* enable DMA channel */
+    dma_channel_enable(DMA0, DMA_CH0);
 }

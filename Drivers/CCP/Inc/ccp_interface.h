@@ -13,10 +13,26 @@
 #ifndef __CCP_INTERFACE_H_
 #define __CCP_INTERFACE_H_
 //< this is embrella header >//
-#include "ccp.h" // IWYU pragma: export
-#include "can.h" // IWYU pragma: export
+#include "ccppar.h"
+#include "stddef.h"
+#include "stdint.h"
 
-extern void ccpSend(CCP_BYTEPTR msg);
-void process_can_rx_buffer(void);
-void ccpUserBackground(void);
+typedef struct
+{
+  uint8_t data[8];
+} ccp_message_t;
+
+void ccpInit(void);
+
+/* DAQ processor */
+void ccpDaq(CCP_BYTE eventChannel);
+
+/* Command processor */
+void ccpCommand(CCP_BYTEPTR msg);
+
+/* Transmit Notification */
+/* Returns 0 when the CCP driver is idle */
+CCP_BYTE ccpSendCallBack(void);
+
+void ccpUserBackground(void);  // empty for many implementations
 #endif

@@ -19,14 +19,10 @@
         {
             "label": "CMake Build",
             "type": "shell",
-            "command": "cmake",
+            "command": "powershell",
             "args": [
-                "--build",
-                "build",
-                "--target",
-                "all",
-                "--",
-                "-j12"
+                "-Command",
+                "$start=Get-Date; cmake --build build; $end=Get-Date; Write-Host \"Build took: $($end - $start).TotalSeconds seconds\""
             ],
             "group": {
                 "kind": "build",

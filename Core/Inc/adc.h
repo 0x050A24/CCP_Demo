@@ -5,6 +5,7 @@
 extern float Temperature;
 
 void ADC_Init(void);
+void ADC_DMA_Init(void);
 void ADC_Calibration(void);
 void ADC_Read_Injection(float *Ia, float *Ib, float *Ic);
 void ADC_Read_Regular(float *Udc, float *inv_Udc);

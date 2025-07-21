@@ -1,7 +1,9 @@
 #ifndef _FOC_TYPES_H_
 #define _FOC_TYPES_H_
-#include "gd32f30x.h"  // Only for ControlStatus definition
+
 #include "stdint.h"
+
+typedef enum {Disable = 0, Enable = !Disable} EnableStatus, CommandStatus;
 
 /*    Type Definitions   */
 typedef enum
@@ -15,17 +17,6 @@ typedef enum
     Identify,
     space
 } FOC_Mode;
-
-typedef enum
-{
-    No_Protect = 0,
-    Over_Current = 1 << 0,          // 0b0001
-    Over_Maximum_Current = 1 << 1,  // 0b0010
-    Over_Voltage = 1 << 2,          // 0b0100
-    Low_Voltage = 1 << 3,           // 0b1000
-    Hardware_Fault = 1 << 4,        // 0b10000
-    Over_Heat = 1 << 5              // 0b100000
-} Protect_Flags;
 
 typedef struct
 {
@@ -79,7 +70,7 @@ typedef struct
     float Iq_ref;
     float IF_Freq;
     float Theta;
-    ControlStatus Sensor_State;
+    EnableStatus Sensor_State;
 } IF_Parameter_t;
 
 typedef struct
@@ -89,6 +80,7 @@ typedef struct
     float Ic;
     float Id;
     float Iq;
+    float I_Max;
     float Udc;
     float inv_Udc;
     uint16_t Position;  // position sensor usually up to 16bits resolution
@@ -99,6 +91,9 @@ typedef struct
     float Id_ref;
     float Iq_ref;
     float PWM_ARR; /* PWM period */
+    float Tcm1;
+    float Tcm2;
+    float Tcm3;
     float Ts;
     float f;
     FOC_Mode Mode;  // 当前控制模式

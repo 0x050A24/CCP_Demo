@@ -10,7 +10,7 @@ typedef struct
     float Vd;
     float Vq;
     float Imax;
-    ControlStatus State; // 0: Idle, 1: Injecting
+    EnableStatus State; // 0: Idle, 1: Injecting
     uint32_t Count;      // Counter for injection duration
 } VoltageInjector_t;
 

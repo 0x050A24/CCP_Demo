@@ -40,7 +40,6 @@ OF SUCH DAMAGE.
 #include "injection.h"
 #include "systick.h"
 
-
 extern volatile uint16_t STOP;
 
 /*!
@@ -143,25 +142,11 @@ void SysTick_Handler(void)
   systick_ms++;
 }
 
-// CCP is NOT! defined as User code, it should be realised as system function //
 void USBD_LP_CAN0_RX0_IRQHandler(void)
 {
   can_receive_message_struct rx_msg;
-
-  // 从硬件FIFO取出一帧CAN消息
-  can_message_receive(hcan0.Instance, CAN_FIFO0, &rx_msg);
-
-  // 计算下一个head位置，检查缓冲区是否满
-  uint8_t next_head = (can_buffer_head + 1) % CAN_BUFFER_SIZE;
-  if (next_head != can_buffer_tail)
-  {  // 有空间
-    can_buffer[can_buffer_head] = rx_msg;
-    can_buffer_head = next_head;
-  }
-  else
-  {
-    // 缓冲区满了，可以统计丢帧数或其他处理
-  }
+  can_message_receive(CAN0, CAN_FIFO0, &rx_msg);
+  CAN_Buffer_Put(&rx_msg);
 }
 
 void ADC0_1_IRQHandler(void)
@@ -181,12 +166,14 @@ void ADC0_1_IRQHandler(void)
     {
       case INIT:
       {
+        Interface_InitProtectParameter();
         Interface_GetSystemFrequency();
         Interface_CalibrateADC();
         if (FOC.Udc > 200.0F)
         {
           Interface_EnableHardwareProtect();
         }
+        Protect.Flag = No_Protect;
         FOC.Mode = IDLE;
         break;
       }
@@ -199,10 +186,11 @@ void ADC0_1_IRQHandler(void)
       }
       case Identify:
       {
-        usart_txbuffer[0] = VoltageInjector.Vq;
-        usart_txbuffer[1] = FOC.Iq;
-        usart_txbuffer[2] = (float)VoltageInjector.Count;
-        Interface_DMASerialSend();
+        float DMA_Buffer[3];
+        DMA_Buffer[0] = VoltageInjector.Vq;
+        DMA_Buffer[1] = FOC.Iq;
+        DMA_Buffer[2] = (float)VoltageInjector.Count;
+        Interface_DMASerialSend(DMA_Buffer, 3);
         break;
       }
       case EXIT:
@@ -214,7 +202,7 @@ void ADC0_1_IRQHandler(void)
         break;
     }
 
-    Interface_SetPWMChangePoint(SVPWM.Tcm1, SVPWM.Tcm2, SVPWM.Tcm3, FOC.PWM_ARR);
+    Interface_SetPWMChangePoint();
   }
 }
 
@@ -229,7 +217,7 @@ void EXTI5_9_IRQHandler(void)
 }
 
 extern Protect_Flags Protect_Flag;
-extern ControlStatus Software_BRK;
+extern EnableStatus Software_BRK;
 
 void TIMER0_BRK_IRQHandler(void)
 {
@@ -238,9 +226,9 @@ void TIMER0_BRK_IRQHandler(void)
     // 清除 Break 中断标志
     timer_interrupt_flag_clear(TIMER0, TIMER_INT_FLAG_BRK);
     STOP = 1;
-    if (Software_BRK == DISABLE)
+    if (Software_BRK == Disable)
     {
-      Protect_Flag |= Hardware_Fault;
+      Protect.Flag |= Hardware_Fault;
       timer_interrupt_disable(TIMER0, TIMER_INT_BRK);  // 禁用BRK中断
       timer_primary_output_config(TIMER0, DISABLE);
     }

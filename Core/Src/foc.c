@@ -3,17 +3,7 @@
 #include "injection.h"
 #include "position_sensor.h"
 
-extern float I_Max;
-
-const Motor_Parameter_t Motor = {.Rs = 0.65F,
-                                 .Ld = 0.001F,
-                                 .Lq = 0.001F,
-                                 .Flux = 0.1F,
-                                 .Pn = 2.0F,
-                                 .Position_Scale = 10000 - 1,
-                                 .Resolver_Pn = 1.0F,
-                                 .inv_MotorPn = 1.0F / 2.0F,  // Pn
-                                 .Position_Offset = 107.0F};
+Motor_Parameter_t Motor;
 FOC_Parameter_t FOC;
 VF_Parameter_t VF;
 IF_Parameter_t IF;
@@ -23,7 +13,6 @@ PID_Controller_t Speed_PID;
 RampGenerator_t Speed_Ramp;
 InvPark_t Inv_Park;
 Clarke_t Clarke;
-SVPWM_t SVPWM;
 
 float theta_mech = 0.0F;
 float theta_elec = 0.0F;
@@ -38,9 +27,10 @@ static inline float wrap_theta_2pi(float theta);
 static inline float RampGenerator(RampGenerator_t* ramp);
 static inline void PID_Controller(float Ref, float Feedback, PID_Controller_t* PID_Controller);
 static inline void ClarkeTransform(float_t Ia, float_t Ib, float_t Ic, Clarke_t* out);
-static inline void ParkTransform(float_t Ialpha, float_t Ibeta, float_t theta, FOC_Parameter_t* out);
+static inline void ParkTransform(float_t Ialpha, float_t Ibeta, float_t theta,
+                                 FOC_Parameter_t* out);
 static inline void InvParkTransform(float_t Udaxis, float_t Uqaxis, float_t theta, InvPark_t* out);
-static inline void SVPWM_Generate(float Ualpha, float Ubeta, float inv_Vdc, SVPWM_t* svpwm);
+static inline void SVPWM_Generate(float Ualpha, float Ubeta, float inv_Vdc, FOC_Parameter_t* foc);
 
 // SECTION - FOC Main
 void FOC_Main(void)
@@ -71,7 +61,7 @@ void FOC_Main(void)
     // SECTION - IF Mode
     case IF_MODE:
     {
-      if (IF.Sensor_State == ENABLE)
+      if (IF.Sensor_State == Enable)
       {
         IF.Theta = FOC.Theta;
       }
@@ -125,8 +115,8 @@ void FOC_Main(void)
     case EXIT:
     {
       STOP = 1;
-      FOC.Id_ref = 0.0F;                               // Id_ref = 0
-      FOC.Iq_ref = 0.0F;                               // Iq_ref = Speed_PID.output
+      FOC.Id_ref = 0.0F;  // Id_ref = 0
+      FOC.Iq_ref = 0.0F;  // Iq_ref = Speed_PID.output
       FOC.Ud_ref = 0.0F;
       FOC.Uq_ref = 0.0F;
       break;
@@ -151,7 +141,7 @@ void FOC_Main(void)
   }
 
   InvParkTransform(FOC.Ud_ref, FOC.Uq_ref, FOC.Theta, &Inv_Park);
-  SVPWM_Generate(Inv_Park.Ualpha, Inv_Park.Ubeta, FOC.inv_Udc, &SVPWM);
+  SVPWM_Generate(Inv_Park.Ualpha, Inv_Park.Ubeta, FOC.inv_Udc, &FOC);
 }
 // !SECTION
 
@@ -171,9 +161,19 @@ void Parameter_Init(void)
   memset(&Speed_PID, 0, sizeof(PID_Controller_t));
   memset(&Inv_Park, 0, sizeof(InvPark_t));
   memset(&Speed_Ramp, 0, sizeof(RampGenerator_t));
+  memset(&Motor, 0, sizeof(Motor_Parameter_t));
 
   STOP = 1;
-  Protect_Flag = No_Protect;
+
+  Motor.Rs = 0.65F;
+  Motor.Ld = 0.001F;
+  Motor.Lq = 0.001F;
+  Motor.Flux = 0.1F;
+  Motor.Pn = 2.0F;
+  Motor.Position_Scale = 10000 - 1;
+  Motor.Resolver_Pn = 1.0F;
+  Motor.inv_MotorPn = 1.0F / 2.0F;  // Pn
+  Motor.Position_Offset = 107.0F;
 
 #ifdef Resolver_Position
   theta_factor = M_2PI / ((Motor.Position_Scale + 1) * Motor.Resolver_Pn);
@@ -184,9 +184,9 @@ void Parameter_Init(void)
   Speed_PID.Kp = 0.0F;
   Speed_PID.Ki = 0.0F;
   Speed_PID.Kd = 0.0F;
-  Speed_PID.MaxOutput = 0.7F * I_Max;  // Maximum Iq
-  Speed_PID.MinOutput = -0.7F * I_Max;
-  Speed_PID.IntegralLimit = 0.7F * I_Max;
+  Speed_PID.MaxOutput = 0.7F * FOC.I_Max;  // Maximum Iq
+  Speed_PID.MinOutput = -0.7F * FOC.I_Max;
+  Speed_PID.IntegralLimit = 0.7F * FOC.I_Max;
   Speed_PID.previous_error = 0.0F;
   Speed_PID.integral = 0.0F;
   Speed_PID.output = 0.0F;
@@ -230,7 +230,7 @@ void Parameter_Init(void)
   IF.Iq_ref = 0.0F;
   IF.IF_Freq = 0.0F;
   IF.Theta = 0.0F;
-  IF.Sensor_State = DISABLE;
+  IF.Sensor_State = Disable;
 }
 // !SECTION
 // SECTION - PID Controller
@@ -420,7 +420,7 @@ static inline float Get_Theta(float Freq, float Theta)
   return Theta;
 }
 
-static inline void SVPWM_Generate(float Ualpha, float Ubeta, float inv_Vdc, SVPWM_t* svpwm)
+static inline void SVPWM_Generate(float Ualpha, float Ubeta, float inv_Vdc, FOC_Parameter_t* foc)
 {
   uint8_t sector = 0;
   float Vref1 = Ubeta;
@@ -529,7 +529,7 @@ static inline void SVPWM_Generate(float Ualpha, float Ubeta, float inv_Vdc, SVPW
       break;
   }
 
-  svpwm->Tcm1 = Tcm1;
-  svpwm->Tcm2 = Tcm2;
-  svpwm->Tcm3 = Tcm3;
+  foc->Tcm1 = Tcm1;
+  foc->Tcm2 = Tcm2;
+  foc->Tcm3 = Tcm3;
 }

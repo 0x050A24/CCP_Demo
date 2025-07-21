@@ -58,7 +58,7 @@
 
 
 // Since CCP demanded struct FOC is Global Variable, make it visible to main ISR //
-extern SVPWM_t SVPWM;
+
 extern FOC_Parameter_t FOC;
 
 
@@ -82,6 +82,17 @@ static inline void FOC_UpdateVoltage(float Udc, float inv_Udc)
 static inline void FOC_UpdatePosition(uint16_t Position)
 {
     FOC.Position = Position;
+}
+
+static inline void FOC_OutputCompare(float* Tcm1, float* Tcm2, float* Tcm3)
+{
+    *Tcm1 = FOC.Tcm1;
+    *Tcm2 = FOC.Tcm2;
+    *Tcm3 = FOC.Tcm3;
+}
+static inline void FOC_UpdateMaxCurrent(float I_Max)
+{
+    FOC.I_Max = I_Max;
 }
 
 #endif /* _FOC_H_ */
