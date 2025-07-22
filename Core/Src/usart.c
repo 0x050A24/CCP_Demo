@@ -60,7 +60,7 @@ void USART_DMA_Init(void)
     dma_init_struct.direction = DMA_MEMORY_TO_PERIPHERAL;          // 传输模式，存储到外设（发送）
     dma_init_struct.memory_addr = 0x0;                             // dma内存地址
     dma_init_struct.memory_inc = DMA_MEMORY_INCREASE_ENABLE;       // 内存地址增量模式
-    dma_init_struct.memory_width = DMA_MEMORY_WIDTH_32BIT;          // read 32bits once
+    dma_init_struct.memory_width = DMA_MEMORY_WIDTH_8BIT;          // read 8bits once
     dma_init_struct.number = 0;                                    // 长度
     dma_init_struct.periph_addr = (uint32_t)(&USART_DATA(USART0)); // 外设基地址( (uint32_t)USART_DATA(USART0) )
     dma_init_struct.periph_inc = DMA_PERIPH_INCREASE_DISABLE;      // 外设地址增量禁用
@@ -69,10 +69,12 @@ void USART_DMA_Init(void)
     dma_init(DMA0, DMA_CH3, &dma_init_struct);
 
     /* configure DMA mode */
-    dma_interrupt_enable(DMA0, DMA_CH3, DMA_INT_FTF);
+    
+    
     dma_circulation_disable(DMA0, DMA_CH3);                       // 循环模式禁用
     dma_memory_to_memory_disable(DMA0, DMA_CH3);                  // 通道3   USART0_TX
     usart_dma_transmit_config(USART0, USART_TRANSMIT_DMA_ENABLE); // USART0 DMA发送使能
+    dma_interrupt_enable(DMA0, DMA_CH3, DMA_INT_FTF);
 }
 
 //< For VOFA+ justfloat frame, this is the most stable way to send data >//
@@ -82,7 +84,7 @@ void USART_DMA_Send(float* TxBuffer, uint8_t floatnum)
 
     dma_memory_address_config(DMA0, DMA_CH3, (uint32_t)TxBuffer);
 
-    dma_transfer_number_config(DMA0, DMA_CH3, floatnum);
+    dma_transfer_number_config(DMA0, DMA_CH3, 4 * floatnum);
 
     dma_channel_enable(DMA0, DMA_CH3);
 }

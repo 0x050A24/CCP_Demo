@@ -62,7 +62,7 @@ int main(void)
   {
     COM_CANProtocol();
     COM_SCIProtocol();
-    //COM_DAQProtocol(systick_ms);
+    COM_DAQProtocol(systick_ms);
     Temperature_Protect();
     Peripheral_GateState();
 
@@ -84,7 +84,8 @@ void nvic_config(void)
   nvic_irq_enable(EXTI5_9_IRQn, 1U, 0U);
   nvic_irq_enable(ADC0_1_IRQn, 2, 0);
   nvic_irq_enable(TIMER3_IRQn, 3, 0);
-  nvic_irq_enable(USBD_LP_CAN0_RX0_IRQn, 5, 0);
+  nvic_irq_enable(USBD_LP_CAN0_RX0_IRQn, 4, 0);
+  nvic_irq_enable(DMA0_Channel3_IRQn, 5, 0);
   /* SysTick_IRQn 009U */
 
   adc_interrupt_enable(ADC0, ADC_INT_EOIC);

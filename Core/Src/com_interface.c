@@ -27,36 +27,46 @@ bool Com_CANSendEnqueue(uint32_t id, const uint8_t* data, size_t len)
 {
   if (!data || len > 8) return false;
 
-  uint8_t next_head = (can_tx_head + 1) % CAN_TX_BUFFER_SIZE;
-  if (next_head == can_tx_tail)
+  uint8_t new_head = (can_tx_head + 1) % CAN_TX_BUFFER_SIZE;
+
+  // 缓冲区满，丢弃“旧数据”：直接前移 tail
+  if (new_head == can_tx_tail)
   {
-    // 缓冲区满
-    return false;
+    can_tx_tail = (can_tx_tail + 1) % CAN_TX_BUFFER_SIZE;  // 丢掉最旧的
   }
 
+  // 写入新数据
+  can_tx_head = new_head;
   can_tx_buffer[can_tx_head].id = id;
   can_tx_buffer[can_tx_head].dlc = len;
   memcpy(can_tx_buffer[can_tx_head].data, data, len);
-  can_tx_head = next_head;
 
   return true;
 }
 
 bool Com_CANSendProcess(void)
 {
-  if (can_tx_tail != can_tx_head)
+  if (can_tx_head != can_tx_tail)
   {
-    can_frame_t* msg = &can_tx_buffer[can_tx_tail];
+    // 取出最新的数据（head指向最新）
+    can_frame_t* msg = &can_tx_buffer[can_tx_head];
 
     if (!Peripheral_CANSend(msg))
     {
-      // 邮箱繁忙，暂停发送
+      // CAN邮箱繁忙，暂停
       return false;
     }
 
-    can_tx_tail = (can_tx_tail + 1) % CAN_TX_BUFFER_SIZE;
+    // 发送完后，将 head 往“旧的方向”移动
+    if (can_tx_head == 0) {
+      can_tx_head = CAN_TX_BUFFER_SIZE - 1;
+    } else {
+      can_tx_head--;
+}
+
     return true;
   }
+
   return false;
 }
 
