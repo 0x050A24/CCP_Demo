@@ -2,14 +2,15 @@
 #include "adc.h"
 #include "can.h"
 #include "ccp_interface.h"
-#include "delay.h"
-#include "foc_interface.h"
+#include "peripheral_interface.h"
+#include "com_interface.h"
 #include "gd32f30x.h"
 #include "gpio.h"
 #include "position_sensor.h"
 #include "systick.h"
 #include "tim.h"
 #include "usart.h"
+#include "com.h"
 
 
 volatile uint32_t DWT_Count = 0;
@@ -62,18 +63,15 @@ int main(void)
   nvic_config();
   while (1)
   {
-    can_rx_message_t can_msg;
-    if (Interface_ReadCANMessage(&can_msg))
-    {
-      if (can_msg.Protocol == CCP)
-      {
-        ccpCommand(can_msg.msg.ccp_msg.data);
-      }
-    }
-    Interface_CANTXProcess();
 
-    daq_trigger();
-    ccpSendCallBack();
+    can_rx_message_t can_msg;
+    can_frame_t can_frame;
+    if (Com_ReadCANFrame(&can_frame))
+    {
+      COM_CANProtocolDispatcher(&can_msg, &can_frame);
+      COM_CANProtocolProcess(&can_msg);
+    }
+
     Interface_GateState();
 
     pin = gpio_input_bit_get(GPIOE, GPIO_PIN_15);

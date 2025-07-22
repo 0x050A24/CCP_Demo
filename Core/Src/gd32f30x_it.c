@@ -35,7 +35,7 @@ OF SUCH DAMAGE.
 #include "gd32f30x_it.h"
 #include "can.h"
 #include "foc.h"
-#include "foc_interface.h"
+#include "peripheral_interface.h"
 #include "gd32f30x.h"
 #include "injection.h"
 #include "systick.h"
@@ -217,7 +217,7 @@ void EXTI5_9_IRQHandler(void)
 }
 
 extern Protect_Flags Protect_Flag;
-extern EnableStatus Software_BRK;
+extern bool Software_BRK;
 
 void TIMER0_BRK_IRQHandler(void)
 {
@@ -226,7 +226,7 @@ void TIMER0_BRK_IRQHandler(void)
     // 清除 Break 中断标志
     timer_interrupt_flag_clear(TIMER0, TIMER_INT_FLAG_BRK);
     STOP = 1;
-    if (Software_BRK == Disable)
+    if (Software_BRK == false)
     {
       Protect.Flag |= Hardware_Fault;
       timer_interrupt_disable(TIMER0, TIMER_INT_BRK);  // 禁用BRK中断

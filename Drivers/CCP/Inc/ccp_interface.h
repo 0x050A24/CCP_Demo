@@ -15,12 +15,6 @@
 //< this is embrella header >//
 #include "ccppar.h"
 #include "stddef.h"
-#include "stdint.h"
-
-typedef struct
-{
-  uint8_t data[8];
-} ccp_message_t;
 
 void ccpInit(void);
 

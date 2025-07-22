@@ -1,5 +1,5 @@
 #include "foc.h"
-#include "foc_interface.h"
+#include "peripheral_interface.h"
 #include "injection.h"
 #include "position_sensor.h"
 

@@ -11,7 +11,7 @@
 /* ccpInit, ccpDaq, ccpSendCallback should be implemented in the main loop       */
 /*---------------------------------------------------------------------------    */
 #include "ccp_interface.h"
-#include "foc_interface.h"
+#include "com_interface.h"
 #include "ccppar.h"
 
 void ccpSend(CCP_BYTEPTR msg);
@@ -26,5 +26,5 @@ void ccpSend(CCP_BYTEPTR msg)
     uint32_t id = CCP_DTO_ID;   // MCU to PC ID
     size_t len = 8;             // CCP发送固定8字节
 
-    Interface_CANTXEnqueue(id, msg, len);
+    Com_CANTXEnqueue(id, msg, len);
 }
