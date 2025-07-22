@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+
 typedef struct {
     uint32_t id;
     uint8_t  dlc;
@@ -10,3 +11,4 @@ typedef struct {
     bool     is_ext;
     bool     is_rtr;
 } can_frame_t;
+

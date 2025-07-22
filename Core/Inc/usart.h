@@ -27,6 +27,6 @@ extern USART_HandleTypeDef husart0; // 声明一个外部的 USART 句柄
 /* USART 初始化函数声明 */
 void USART_Init(USART_HandleTypeDef *husart);
 void USART_DMA_Init(void);
-void USART_DMA_Send_Vofa(float* TxBuffer, uint16_t DataSize);
+void USART_DMA_Send(float* TxBuffer, uint8_t floatnum);
 
 #endif /* GD_USART_H */

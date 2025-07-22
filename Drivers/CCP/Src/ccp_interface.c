@@ -26,5 +26,5 @@ void ccpSend(CCP_BYTEPTR msg)
     uint32_t id = CCP_DTO_ID;   // MCU to PC ID
     size_t len = 8;             // CCP发送固定8字节
 
-    Com_CANTXEnqueue(id, msg, len);
+    Com_CANSendEnqueue(id, msg, len);
 }

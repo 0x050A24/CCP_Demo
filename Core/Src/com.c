@@ -1,11 +1,43 @@
 #include "com.h"
-#include "com_interface.h"
 #include "ccp_interface.h"
 #include "ccppar.h"
+#include "com_interface.h"
 #include "string.h"
-
+#include "com_types.h"
+#include "com_frame.h"
 
 static inline bool CAN_to_CCP(const can_frame_t* msg, ccp_message_t* ccp_msg);
+static inline void COM_CANProtocolDispatcher(can_rx_message_t* msg, const can_frame_t* frame);
+static inline void COM_CANProtocolProcess(can_rx_message_t* msg);
+
+void COM_CANProtocol(void)
+{
+  can_rx_message_t can_msg;
+  can_frame_t can_frame;
+  if (Com_ReadCANFrame(&can_frame))
+  {
+    COM_CANProtocolDispatcher(&can_msg, &can_frame);
+    COM_CANProtocolProcess(&can_msg);
+  }
+}
+
+void COM_SCIProtocol(void)
+{
+  
+  Com_SCISendProcess();
+}
+
+void COM_DAQProtocol(uint32_t systick_ms)
+{
+  static uint32_t last_daq_ms = 0;
+
+  if ((systick_ms - last_daq_ms) >= 5)
+  {
+    last_daq_ms = systick_ms;
+    ccpDaq(0);
+  }
+
+}
 
 void COM_CANProtocolDispatcher(can_rx_message_t* msg, const can_frame_t* frame)
 {
@@ -29,8 +61,8 @@ void COM_CANProtocolProcess(can_rx_message_t* msg)
   switch (msg->Protocol)
   {
     case CCP:
-      ccpCommand(msg->msg.ccp_msg.data);//  Message wrote to Buffer already
-      Com_CANTXProcess();
+      ccpCommand(msg->msg.ccp_msg.data);  //  Message wrote to Buffer already
+      Com_CANSendProcess();
       ccpSendCallBack();
 
       break;

@@ -1,10 +1,10 @@
 #include "peripheral_interface.h"
 #include <stddef.h>
-#include "stdbool.h"
 #include "adc.h"
 #include "can.h"
 #include "foc.h"
 #include "position_sensor.h"
+#include "stdbool.h"
 #include "tim.h"
 #include "usart.h"
 
@@ -16,15 +16,17 @@ Protect_Parameter_t Protect = {.Udc_rate = Voltage_Rate,
                                .Temperature = Temperature_Threshold,
                                .Flag = No_Protect};
 
+static volatile bool usart_dma_busy = false;
+
 static inline void CurrentProtect(float Ia, float Ib, float Ic, float I_Max);
 static inline void VoltageProtect(float Udc, float Udc_rate, float Udc_fluctuation);
 static inline bool can_receive_to_frame(const can_receive_message_struct* hw_msg,
                                         can_frame_t* frame);
 
-bool Peripheral_CANTX(const can_frame_t* frame)
+bool Peripheral_CANSend(const can_frame_t* frame)
 {
   if (!frame || frame->dlc > 8) return false;
-  
+
   can_transmit_message_struct tx_msg;
   tx_msg.tx_dlen = frame->dlc;
   memcpy(tx_msg.tx_data, frame->data, frame->dlc);
@@ -32,10 +34,13 @@ bool Peripheral_CANTX(const can_frame_t* frame)
   tx_msg.tx_ff = frame->is_ext ? CAN_FF_EXTENDED : CAN_FF_STANDARD;
   tx_msg.tx_ft = frame->is_rtr ? CAN_FT_REMOTE : CAN_FT_DATA;
 
-  if (frame->is_ext) {
-    tx_msg.tx_sfid = 0;               // 无效
+  if (frame->is_ext)
+  {
+    tx_msg.tx_sfid = 0;  // 无效
     tx_msg.tx_efid = frame->id & 0x1FFFFFFF;
-  } else {
+  }
+  else
+  {
     tx_msg.tx_sfid = frame->id & 0x7FF;
     tx_msg.tx_efid = 0;
   }
@@ -44,12 +49,11 @@ bool Peripheral_CANTX(const can_frame_t* frame)
   return mailbox != CAN_NOMAILBOX;
 }
 
-bool Peripheral_CANRX(can_frame_t* frame)
+bool Peripheral_CANReceive(can_frame_t* frame)
 {
   can_receive_message_struct rx_msg;
   if (CAN_Buffer_Get(&rx_msg))
   {
-
     if (can_receive_to_frame(&rx_msg, frame))
     {
       return true;
@@ -58,31 +62,22 @@ bool Peripheral_CANRX(can_frame_t* frame)
   return false;
 }
 
-static inline bool can_receive_to_frame(const can_receive_message_struct* hw_msg,
-                                        can_frame_t* frame)
+void Peripheral_SCISend(float* TxBuffer, uint8_t floatnum)
 {
-  if (!hw_msg || !frame) return false;
-
-  // 判断标准帧还是扩展帧
-  if (hw_msg->rx_ff == CAN_FF_STANDARD)
+  if (usart_dma_busy)
   {
-    frame->id = hw_msg->rx_sfid & 0x7FF;  // 11-bit 标准ID
-    frame->is_ext = false;
+    return;
   }
-  else
-  {
-    frame->id = hw_msg->rx_efid & 0x1FFFFFFF;  // 29-bit 扩展ID
-    frame->is_ext = true;
-  }
-
-  frame->dlc = (hw_msg->rx_dlen > 8) ? 8 : hw_msg->rx_dlen;
-  frame->is_rtr = (hw_msg->rx_ft == CAN_FT_REMOTE);
-  memcpy(frame->data, hw_msg->rx_data, frame->dlc);
-
-  return true;
+  USART_DMA_Send(TxBuffer, floatnum);
+  usart_dma_busy = true;
 }
 
-void Interface_GateState(void)
+void Peripheral_SCISendCallback(void)
+{
+  usart_dma_busy = false;
+}
+
+void Peripheral_GateState(void)
 {
   if (Protect.Flag != No_Protect)
   {
@@ -110,17 +105,17 @@ void Interface_GateState(void)
   }
 }
 
-void Interface_EnableHardwareProtect(void)
+void Peripheral_EnableHardwareProtect(void)
 {
   timer_interrupt_enable(TIMER0, TIMER_INT_BRK);  // 启用BRK中断
 }
 
-void Interface_DisableHardwareProtect(void)
+void Peripheral_DisableHardwareProtect(void)
 {
   timer_interrupt_disable(TIMER0, TIMER_INT_BRK);  // 禁用BRK中断
 }
 
-void Interface_InitProtectParameter(void)
+void Peripheral_InitProtectParameter(void)
 {
   Protect.Udc_rate = Voltage_Rate;
   Protect.Udc_fluctuation = Voltage_Fluctuation;
@@ -131,7 +126,7 @@ void Interface_InitProtectParameter(void)
 }
 
 // recommended to operate register if possible //
-void Interface_SetPWMChangePoint(void)
+void Peripheral_SetPWMChangePoint(void)
 {
   float Tcm1 = 0.0F;
   float Tcm2 = 0.0F;
@@ -140,7 +135,7 @@ void Interface_SetPWMChangePoint(void)
   Set_PWM_Compare(Tcm1, Tcm2, Tcm3);
 }
 
-void Interface_UpdateUdc(void)
+void Peripheral_UpdateUdc(void)
 {
   float Udc = 0.0F;
   float inv_Udc = 0.0F;
@@ -149,7 +144,7 @@ void Interface_UpdateUdc(void)
   FOC_UpdateVoltage(Udc, inv_Udc);
 }
 
-void Interface_UpdateCurrent(void)
+void Peripheral_UpdateCurrent(void)
 {
   float Ia = 0.0F;
   float Ib = 0.0F;
@@ -159,30 +154,25 @@ void Interface_UpdateCurrent(void)
   FOC_UpdateCurrent(Ia, Ib, Ic);
 }
 
-void Interface_UpdatePosition(void)
+void Peripheral_UpdatePosition(void)
 {
   uint16_t position_data = 0;
   ReadPositionSensor(&position_data);
   FOC_UpdatePosition(position_data);
 }
 
-void Interface_CalibrateADC(void)
+void Peripheral_CalibrateADC(void)
 {
   ADC_Calibration();
 }
 
-void Interface_GetSystemFrequency(void)
+void Peripheral_GetSystemFrequency(void)
 {
   float f = 0.0F;
   float Ts = 0.0F;
   float PWM_ARR = 0.0F;
   cal_fmain(&f, &Ts, &PWM_ARR);
   FOC_UpdateMainFrequency(f, Ts, PWM_ARR);
-}
-
-void Interface_DMASerialSend(float* TxBuffer, uint16_t DataSize)
-{
-  USART_DMA_Send_Vofa(TxBuffer, DataSize);
 }
 
 static inline void CurrentProtect(float Ia, float Ib, float Ic, float I_Max)
@@ -219,4 +209,28 @@ static inline void VoltageProtect(float Udc, float Udc_rate, float Udc_fluctuati
     STOP = 1;
     Protect.Flag |= Low_Voltage;
   }
+}
+
+static inline bool can_receive_to_frame(const can_receive_message_struct* hw_msg,
+                                        can_frame_t* frame)
+{
+  if (!hw_msg || !frame) return false;
+
+  // 判断标准帧还是扩展帧
+  if (hw_msg->rx_ff == CAN_FF_STANDARD)
+  {
+    frame->id = hw_msg->rx_sfid & 0x7FF;  // 11-bit 标准ID
+    frame->is_ext = false;
+  }
+  else
+  {
+    frame->id = hw_msg->rx_efid & 0x1FFFFFFF;  // 29-bit 扩展ID
+    frame->is_ext = true;
+  }
+
+  frame->dlc = (hw_msg->rx_dlen > 8) ? 8 : hw_msg->rx_dlen;
+  frame->is_rtr = (hw_msg->rx_ft == CAN_FT_REMOTE);
+  memcpy(frame->data, hw_msg->rx_data, frame->dlc);
+
+  return true;
 }

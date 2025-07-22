@@ -2,16 +2,14 @@
 #include "adc.h"
 #include "can.h"
 #include "ccp_interface.h"
-#include "peripheral_interface.h"
-#include "com_interface.h"
+#include "com.h"
 #include "gd32f30x.h"
 #include "gpio.h"
+#include "peripheral_interface.h"
 #include "position_sensor.h"
 #include "systick.h"
 #include "tim.h"
 #include "usart.h"
-#include "com.h"
-
 
 volatile uint32_t DWT_Count = 0;
 
@@ -22,7 +20,6 @@ void Temperature_Protect(void);
 void daq_trigger(void);
 void nvic_config(void);
 void EXIT_Config(void);
-
 void relay_init(void);
 
 /*!
@@ -63,20 +60,14 @@ int main(void)
   nvic_config();
   while (1)
   {
-
-    can_rx_message_t can_msg;
-    can_frame_t can_frame;
-    if (Com_ReadCANFrame(&can_frame))
-    {
-      COM_CANProtocolDispatcher(&can_msg, &can_frame);
-      COM_CANProtocolProcess(&can_msg);
-    }
-
-    Interface_GateState();
+    COM_CANProtocol();
+    COM_SCIProtocol();
+    //COM_DAQProtocol(systick_ms);
+    Temperature_Protect();
+    Peripheral_GateState();
 
     pin = gpio_input_bit_get(GPIOE, GPIO_PIN_15);
     // DWT_Count = DWT->CYCCNT; // 读取DWT计数器
-    Temperature_Protect();
   }
 }
 
@@ -97,16 +88,6 @@ void nvic_config(void)
   /* SysTick_IRQn 009U */
 
   adc_interrupt_enable(ADC0, ADC_INT_EOIC);
-}
-
-void daq_trigger(void)
-{
-  static uint32_t last_daq_ms = 0;
-  if ((systick_ms - last_daq_ms) >= 5)
-  {
-    last_daq_ms = systick_ms;
-    ccpDaq(0);
-  }
 }
 
 void relay_init(void)

@@ -39,6 +39,7 @@ OF SUCH DAMAGE.
 #include "gd32f30x.h"
 #include "injection.h"
 #include "systick.h"
+#include "justfloat.h"
 
 extern volatile uint16_t STOP;
 
@@ -106,13 +107,6 @@ void UsageFault_Handler(void)
   }
 }
 
-/*!
-    \brief      this function handles SVC exception
-    \param[in]  none
-    \param[out] none
-    \retval     none
-*/
-void SVC_Handler(void) {}
 
 /*!
     \brief      this function handles DebugMon exception
@@ -122,13 +116,6 @@ void SVC_Handler(void) {}
 */
 void DebugMon_Handler(void) {}
 
-/*!
-    \brief      this function handles PendSV exception
-    \param[in]  none
-    \param[out] none
-    \retval     none
-*/
-void PendSV_Handler(void) {}
 
 /*!
     \brief      this function handles SysTick exception
@@ -140,6 +127,15 @@ void SysTick_Handler(void)
 {
   delay_decrement();
   systick_ms++;
+}
+
+void DMA0_Channel3_IRQHandler(void)
+{
+    if (dma_interrupt_flag_get(DMA0, DMA_CH3, DMA_INT_FLAG_FTF))
+    {
+        dma_interrupt_flag_clear(DMA0, DMA_CH3, DMA_INT_FLAG_FTF);
+        Peripheral_SCISendCallback();
+    }
 }
 
 void USBD_LP_CAN0_RX0_IRQHandler(void)
@@ -155,10 +151,10 @@ void ADC0_1_IRQHandler(void)
   {
     adc_interrupt_flag_clear(ADC0, ADC_INT_FLAG_EOIC);
 
-    Interface_UpdateCurrent();
-    Interface_GateState();
-    Interface_UpdateUdc();
-    Interface_UpdatePosition();
+    Peripheral_UpdateCurrent();
+    Peripheral_GateState();
+    Peripheral_UpdateUdc();
+    Peripheral_UpdatePosition();
 
     FOC_Main();
 
@@ -166,12 +162,12 @@ void ADC0_1_IRQHandler(void)
     {
       case INIT:
       {
-        Interface_InitProtectParameter();
-        Interface_GetSystemFrequency();
-        Interface_CalibrateADC();
+        Peripheral_InitProtectParameter();
+        Peripheral_GetSystemFrequency();
+        Peripheral_CalibrateADC();
         if (FOC.Udc > 200.0F)
         {
-          Interface_EnableHardwareProtect();
+          Peripheral_EnableHardwareProtect();
         }
         Protect.Flag = No_Protect;
         FOC.Mode = IDLE;
@@ -190,19 +186,19 @@ void ADC0_1_IRQHandler(void)
         DMA_Buffer[0] = VoltageInjector.Vq;
         DMA_Buffer[1] = FOC.Iq;
         DMA_Buffer[2] = (float)VoltageInjector.Count;
-        Interface_DMASerialSend(DMA_Buffer, 3);
+        justfloat(DMA_Buffer, 3);
         break;
       }
       case EXIT:
       {
-        Interface_DisableHardwareProtect();
+        Peripheral_DisableHardwareProtect();
         break;
       }
       default:
         break;
     }
 
-    Interface_SetPWMChangePoint();
+    Peripheral_SetPWMChangePoint();
   }
 }
 
