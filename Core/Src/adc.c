@@ -5,7 +5,7 @@
 
 float Temperature = 0.0f;
 
-static uint32_t dc_raw = 0; //may need to be modified though CCP
+uint32_t dc_raw = 0; //may need to be modified though CCP, go static make it invisible
 static uint32_t adc_value[2]; // Regular ADC Channel Buffer
 static float adc_ch0_offset = 0;
 static float adc_ch1_offset = 0;

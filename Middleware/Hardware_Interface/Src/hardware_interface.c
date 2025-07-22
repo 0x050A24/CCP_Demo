@@ -1,8 +1,9 @@
-#include "peripheral_interface.h"
+#include "hardware_interface.h"
 #include <stddef.h>
 #include "adc.h"
 #include "can.h"
 #include "foc.h"
+#include "gpio.h"
 #include "position_sensor.h"
 #include "stdbool.h"
 #include "tim.h"
@@ -175,6 +176,19 @@ void Peripheral_GetSystemFrequency(void)
   FOC_UpdateMainFrequency(f, Ts, PWM_ARR);
 }
 
+void Peripheral_TemperatureProtect(void)
+{
+  if (Temperature > 0.35 * Protect.Temperature)
+  {
+    gpio_bit_set(FAN_OPEN_PORT, FAN_OPEN_PIN);
+  }
+  if (Temperature > Protect.Temperature)
+  {
+    STOP = 1;
+    Protect.Flag |= Over_Heat;
+  }
+}
+
 static inline void CurrentProtect(float Ia, float Ib, float Ic, float I_Max)
 {
   if ((Ia > 0.9 * I_Max || Ia < -0.9 * I_Max) || (Ib > 0.9 * I_Max || Ib < -0.9 * I_Max) ||
@@ -234,3 +248,4 @@ static inline bool can_receive_to_frame(const can_receive_message_struct* hw_msg
 
   return true;
 }
+

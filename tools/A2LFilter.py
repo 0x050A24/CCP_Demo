@@ -222,7 +222,7 @@ def filter_a2l(in_path: str, out_path: str) -> None:
         re.compile(r".*hcan0.*"),            # CAN硬件相关变量
         re.compile(r".*_lut*"),              # 查找表变量
         re.compile(r".*ccp.*"),              # CCP协议相关变量
-        re.compile(r".*GPIOD_InitStruct.*"), # GPIO初始化结构体
+        re.compile(r".*con.*"),
     ]
 
     # 开始处理文件内容

@@ -35,19 +35,26 @@ extern volatile uint16_t STOP;
 extern bool Software_BRK;
 extern Protect_Parameter_t Protect;
 
+
+void Peripheral_GateState(void);
+
+void Peripheral_InitProtectParameter(void);
+
 bool Peripheral_CANSend(const can_frame_t* frame);
 bool Peripheral_CANReceive(can_frame_t* frame);
-void Peripheral_InitProtectParameter(void);
+void Peripheral_SCISend(float* TxBuffer, uint8_t floatnum);
+void Peripheral_SCISendCallback(void);
+
+void Peripheral_CalibrateADC(void);
 void Peripheral_UpdateUdc(void);
 void Peripheral_UpdateCurrent(void);
 void Peripheral_UpdatePosition(void);
-void Peripheral_GateState(void);
-void Peripheral_CalibrateADC(void);
 void Peripheral_GetSystemFrequency(void);
-void Peripheral_SCISend(float* TxBuffer, uint8_t floatnum);
-void Peripheral_SCISendCallback(void);
+
+void Peripheral_TemperatureProtect(void);
 void Peripheral_EnableHardwareProtect(void);
 void Peripheral_DisableHardwareProtect(void);
+
 void Peripheral_SetPWMChangePoint(void);
 
 #endif /* _PHERIPHERAL_INTERFACE_H_ */

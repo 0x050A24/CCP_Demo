@@ -35,7 +35,7 @@ OF SUCH DAMAGE.
 #include "gd32f30x_it.h"
 #include "can.h"
 #include "foc.h"
-#include "peripheral_interface.h"
+#include "hardware_interface.h"
 #include "gd32f30x.h"
 #include "injection.h"
 #include "systick.h"

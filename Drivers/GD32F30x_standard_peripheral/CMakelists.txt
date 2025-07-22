@@ -1,0 +1,37 @@
+#
+set ( GD32F30x_standard_peripheral_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/Source/gd32f30x_adc.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/Source/gd32f30x_bkp.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/Source/gd32f30x_can.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/Source/gd32f30x_crc.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/Source/gd32f30x_ctc.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/Source/gd32f30x_dac.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/Source/gd32f30x_dbg.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/Source/gd32f30x_dma.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/Source/gd32f30x_enet.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/Source/gd32f30x_exmc.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/Source/gd32f30x_exti.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/Source/gd32f30x_fmc.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/Source/gd32f30x_fwdgt.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/Source/gd32f30x_gpio.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/Source/gd32f30x_i2c.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/Source/gd32f30x_misc.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/Source/gd32f30x_pmu.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/Source/gd32f30x_rcu.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/Source/gd32f30x_rtc.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/Source/gd32f30x_sdio.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/Source/gd32f30x_spi.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/Source/gd32f30x_timer.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/Source/gd32f30x_usart.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/Source/gd32f30x_wwdgt.c
+)
+
+add_library ( GD32F30x_standard_peripheral STATIC
+    ${GD32F30x_standard_peripheral_SOURCES}
+)
+
+target_include_directories ( GD32F30x_standard_peripheral PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/Include
+)
+
+target_link_libraries ( GD32F30x_standard_peripheral PUBLIC CMSIS_Core )

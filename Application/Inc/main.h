@@ -36,4 +36,9 @@ OF SUCH DAMAGE.
 #define MAIN_H
 #include <stdbool.h>
 
+void EXIT_Config(void);
+void relay_init(void);
+void DWT_Init(void);
+void nvic_config(void);
+
 #endif /* MAIN_H */

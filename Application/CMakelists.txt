@@ -1,0 +1,28 @@
+#
+set ( User_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/Src/main.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/Src/gd32f30x_it.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/Src/injection.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/Src/foc.c
+)
+
+add_library ( User STATIC
+    ${User_SOURCES}
+)
+
+target_include_directories ( User PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/Inc
+)
+
+add_library ( Application INTERFACE )
+
+target_link_libraries ( Application
+    INTERFACE User
+)
+
+target_link_libraries ( User PUBLIC
+    Core
+    Middleware
+    Communication
+    Drivers
+)

@@ -1,5 +1,5 @@
 #include "com_interface.h"
-#include "peripheral_interface.h"
+#include "hardware_interface.h"
 #include "string.h"
 
 #define CAN_TX_BUFFER_SIZE 8
