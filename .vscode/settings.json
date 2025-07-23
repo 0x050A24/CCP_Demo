@@ -18,6 +18,7 @@
     "C_Cpp.codeAnalysis.clangTidy.config": "file",
     "C_Cpp.clang_format_path": "clang-format",
     "C_Cpp.clang_format_style": "file",
+    "cmake.generator": "Ninja",
     "VsCodeTaskButtons.showCounter": true,
     "VsCodeTaskButtons.tasks": [
         {
@@ -79,10 +80,6 @@
     "terminal.integrated.defaultProfile.windows": "PowerShell",
     "cortex-debug.variableUseNaturalFormat": true,
     "files.associations": {
-        "main.h": "c",
-        "gd32f30x.h": "c",
-        "cstring": "c",
-        "variant": "c",
-        "cstdlib": "c"
+        "*.h": "c"
     },
 }

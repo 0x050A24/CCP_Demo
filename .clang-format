@@ -1,9 +1,97 @@
+# clang-format configuration for embedded C project
+# Based on Google style with customizations for embedded development
+
+# 基于Google代码风格
 BasedOnStyle: Google
-IndentWidth: 2
+
+# 基本格式设置
+# 缩进宽度为4个空格
+IndentWidth: 4
+# Tab宽度为4个空格
+TabWidth: 4
+# 不使用Tab，只使用空格
+UseTab: Never
+# 每行最大字符数限制为100
 ColumnLimit: 100
-AllowShortFunctionsOnASingleLine: Inline
-DerivePointerAlignment: false
-PointerAlignment: Left
-SortIncludes: true
-IncludeBlocks: Preserve
+
+# 大括号换行风格
+# Allman风格：大括号单独一行
 BreakBeforeBraces: Allman
+
+# 函数和语句格式
+# 允许短函数写在一行（仅限内联）
+AllowShortFunctionsOnASingleLine: Inline
+# 不允许短if语句写在一行
+AllowShortIfStatementsOnASingleLine: Never
+# 不允许短循环写在一行
+AllowShortLoopsOnASingleLine: false
+# 不允许短case标签写在一行
+AllowShortCaseLabelsOnASingleLine: false
+# 不允许短代码块写在一行
+AllowShortBlocksOnASingleLine: Never
+
+# 指针对齐
+# 不自动推导指针对齐方式
+DerivePointerAlignment: false
+# 指针符号靠左对齐 (int* ptr)
+PointerAlignment: Left
+
+# 头文件包含
+# 对include语句进行排序
+SortIncludes: true
+
+# 空格设置
+# C风格类型转换后加空格
+SpaceAfterCStyleCast: true
+# 控制语句前加空格 (if, for, while等)
+SpaceBeforeParens: ControlStatements
+# 空括号内不加空格
+SpaceInEmptyParentheses: false
+# C风格转换括号内不加空格
+SpacesInCStyleCastParentheses: false
+# 括号内不加空格
+SpacesInParentheses: false
+# 方括号内不加空格
+SpacesInSquareBrackets: false
+
+# 对齐设置
+# 不对齐连续赋值
+AlignConsecutiveAssignments: false
+# 不对齐连续声明
+AlignConsecutiveDeclarations: false
+# 对齐操作数
+AlignOperands: true
+# 对齐尾随注释
+AlignTrailingComments: true
+
+# 换行设置
+# 允许参数打包在一行
+BinPackArguments: true
+# 允许参数打包在一行
+BinPackParameters: true
+# 二元操作符不换行
+BreakBeforeBinaryOperators: None
+# 三元操作符前换行
+BreakBeforeTernaryOperators: true
+# 允许断开字符串字面量
+BreakStringLiterals: true
+
+# 缩进设置
+# case标签缩进
+IndentCaseLabels: true
+# goto标签缩进
+IndentGotoLabels: true
+# 预处理指令不缩进
+IndentPPDirectives: None
+# 换行的函数名不缩进
+IndentWrappedFunctionNames: false
+
+# 其他设置
+# 块开始处不保留空行
+KeepEmptyLinesAtTheStartOfBlocks: false
+# 最多保留2行空行
+MaxEmptyLinesToKeep: 2
+# 重新格式化注释
+ReflowComments: true
+# 不禁用格式化
+DisableFormat: false
