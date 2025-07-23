@@ -1,9 +1,12 @@
 #include "tim.h"
+
 #include "gd32f30x.h"
+
 
 static inline uint8_t calculate_deadtime_value(uint32_t deadtime_ns, uint32_t timer_clk_hz);
 
-void TIM0_PWM_Init(void) {
+void TIM0_PWM_Init(void)
+{
     // 1. 时钟与复用
     /* Timer Clock from APB2CLK */
     rcu_periph_clock_enable(RCU_TIMER0);
@@ -20,10 +23,10 @@ void TIM0_PWM_Init(void) {
     timer_deinit(TIMER0);
     timer_parameter_struct timer_initpara;
     timer_struct_para_init(&timer_initpara);
-    timer_initpara.prescaler = 0;
+    timer_initpara.prescaler = MAIN_INT_TIMER_PRESCALER;  // 0
     timer_initpara.alignedmode = TIMER_COUNTER_CENTER_BOTH;
     timer_initpara.counterdirection = TIMER_COUNTER_UP;  // no sense
-    timer_initpara.period = 6000 - 1;
+    timer_initpara.period = MAIN_INT_TIMER_PERIOD - 1;
     timer_initpara.clockdivision = TIMER_CKDIV_DIV1;
     timer_initpara.repetitioncounter = 1;  // every 2 update events calls 1 interrupt
     timer_init(TIMER0, &timer_initpara);
@@ -40,7 +43,8 @@ void TIM0_PWM_Init(void) {
     oc_param.ocidlestate = TIMER_OC_IDLE_STATE_HIGH;
     oc_param.ocnidlestate = TIMER_OCN_IDLE_STATE_HIGH;
 
-    for (int ch = TIMER_CH_0; ch <= TIMER_CH_2; ch++) {
+    for (int ch = TIMER_CH_0; ch <= TIMER_CH_2; ch++)
+    {
         timer_channel_output_config(TIMER0, ch, &oc_param);
         timer_channel_output_mode_config(TIMER0, ch,
                                          TIMER_OC_MODE_PWM1);  // PWM1: ccr > arr output high
@@ -53,7 +57,8 @@ void TIM0_PWM_Init(void) {
     timer_break_parameter_struct brk_param;
     brk_param.runoffstate = TIMER_ROS_STATE_ENABLE;
     brk_param.ideloffstate = TIMER_IOS_STATE_ENABLE;
-    brk_param.deadtime = calculate_deadtime_value(2000, SystemCoreClock);  // 2us
+    brk_param.deadtime =
+        calculate_deadtime_value(MAIN_INT_TIMER_DEADTIME_PERIOD, SystemCoreClock);  // 2us
     brk_param.breakstate = TIMER_BREAK_ENABLE;
     brk_param.breakpolarity = TIMER_BREAK_POLARITY_LOW;
     brk_param.protectmode = TIMER_CCHP_PROT_OFF;
@@ -77,7 +82,8 @@ void TIM0_PWM_Init(void) {
     timer_enable(TIMER0);
 }
 
-void TIM1_Init(void) {
+void TIM1_Init(void)
+{
     // 使能定时器时钟
     rcu_periph_clock_enable(RCU_TIMER1);
 
@@ -98,29 +104,36 @@ void TIM1_Init(void) {
     timer_enable(TIMER1);
 }
 
-static inline uint8_t calculate_deadtime_value(uint32_t deadtime_ns, uint32_t timer_clk_hz) {
-    float t_dts = 1e9f / (float)timer_clk_hz;  // ns
-    float ticks = (float)deadtime_ns / t_dts;
+static inline uint8_t calculate_deadtime_value(uint32_t deadtime_ns, uint32_t timer_clk_hz)
+{
+    float t_dts = 1e9f / (float) timer_clk_hz;  // ns
+    float ticks = (float) deadtime_ns / t_dts;
 
-    if (ticks <= 127) {
-        return (uint8_t)(ticks);
-    } else if (ticks <= (64 + 63) * 2) {
-        return (uint8_t)(0x80 | ((uint8_t)((ticks / 2) - 64) & 0x3F));
-    } else if (ticks <= (32 + 31) * 8) {
-        return (uint8_t)(0xC0 | ((uint8_t)((ticks / 8) - 32) & 0x1F));
-    } else if (ticks <= (32 + 31) * 16) {
-        return (uint8_t)(0xE0 | ((uint8_t)((ticks / 16) - 32) & 0x1F));
-    } else {
+    if (ticks <= 127)
+    {
+        return (uint8_t) (ticks);
+    }
+    else if (ticks <= (64 + 63) * 2)
+    {
+        return (uint8_t) (0x80 | ((uint8_t) ((ticks / 2) - 64) & 0x3F));
+    }
+    else if (ticks <= (32 + 31) * 8)
+    {
+        return (uint8_t) (0xC0 | ((uint8_t) ((ticks / 8) - 32) & 0x1F));
+    }
+    else if (ticks <= (32 + 31) * 16)
+    {
+        return (uint8_t) (0xE0 | ((uint8_t) ((ticks / 16) - 32) & 0x1F));
+    }
+    else
+    {
         return 0xFF;  // Max
     }
 }
 
-void cal_fmain(float *f, float *Ts, float *PWM_ARR)
+void cal_fmain(float* f, float* Ts, float* PWM_ARR)
 {
-    float prescaler = TIMER_PSC(TIMER0) + 1.0F;
-    float timer_clk = (float)SystemCoreClock / prescaler;
-    float counter_mode = ((TIMER_CTL0(TIMER0) & TIMER_CTL0_CAM) >> 5) == 0 ? 1.0F : 2.0F;
-    *f = (timer_clk / (TIMER_CAR(TIMER0) + 1.0F) / counter_mode);
-    *PWM_ARR = (uint16_t)(TIMER_CAR(TIMER0) + 1);
-    *Ts = 1.0F / *f;  // Main loop time
+    *f = MAIN_LOOP_FREQ;
+    *Ts = MAIN_LOOP_TIME;
+    *PWM_ARR = MAIN_INT_TIMER_PERIOD;
 }

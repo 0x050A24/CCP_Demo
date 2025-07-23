@@ -191,14 +191,14 @@ void Parameter_Init(void)
     Speed_PID.previous_error = 0.0F;
     Speed_PID.integral = 0.0F;
     Speed_PID.output = 0.0F;
-    Speed_PID.Ts = SPEED_LOOP_TIME;
+    Speed_PID.Ts = FOC.Ts / SPEED_LOOP_PRESCALER;  // Speed loop time
 
     Speed_Ramp.slope = 50.0F;  // limit to 50 rpm/s
     Speed_Ramp.limit_min = -1800.0F;
     Speed_Ramp.limit_max = 1800.0F;
     Speed_Ramp.value = 0.0F;
     Speed_Ramp.target = 0.0F;
-    Speed_Ramp.Ts = SPEED_LOOP_TIME;
+    Speed_Ramp.Ts = FOC.Ts / SPEED_LOOP_PRESCALER;  // Speed loop time
 
     Id_PID.Kp = 73.8274273F;
     Id_PID.Ki = 408.40704496F;
@@ -209,7 +209,7 @@ void Parameter_Init(void)
     Id_PID.previous_error = 0.0F;
     Id_PID.integral = 0.0F;
     Id_PID.output = 0.0F;
-    Id_PID.Ts = CURRENT_LOOP_TIME;
+    Id_PID.Ts = FOC.Ts;  // Current loop time
 
     Iq_PID.Kp = 27.646015F;
     Iq_PID.Ki = 408.40704496F;
@@ -220,7 +220,7 @@ void Parameter_Init(void)
     Iq_PID.previous_error = 0.0F;
     Iq_PID.integral = 0.0F;
     Iq_PID.output = 0.0F;
-    Iq_PID.Ts = CURRENT_LOOP_TIME;
+    Iq_PID.Ts = FOC.Ts;  // Current loop time
 
     VF.Vref_Ud = 0.0F;
     VF.Vref_Uq = 0.0F;
@@ -400,7 +400,7 @@ static inline void InvParkTransform(float_t Ud, float_t Uq, float_t theta, InvPa
 static inline float Get_Theta(float Freq, float Theta)
 {
     // 电角度递推：θ += ω·Ts，ω = 2π·f
-    Theta += M_2PI * Freq * CURRENT_LOOP_TIME;
+    Theta += M_2PI * Freq * FOC.Ts;
     if (Theta > M_2PI)
     {
         Theta -= M_2PI;

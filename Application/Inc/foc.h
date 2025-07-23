@@ -56,11 +56,7 @@
 #define TIME_10KHZ 0.0001F            /* 10kHz sampling time */
 
 /* FOC parameters */
-#define SPEED_LOOP_DIVISION 10                       /* Speed loop frequency division factor */
-#define CURRENT_LOOP_TIME TIME_2KHZ                  /* Current loop frequency */
-#define CURRENT_LOOP_FREQ (1.0F / CURRENT_LOOP_TIME) /* Current loop frequency */
-#define SPEED_LOOP_TIME (CURRENT_LOOP_TIME * SPEED_LOOP_DIVISION) /* Speed loop frequency */
-#define SPEED_LOOP_FREQ (1.0F / SPEED_LOOP_TIME)                  /* Speed loop frequency */
+#define SPEED_LOOP_PRESCALER 10U /* Speed loop frequency division factor */
 
     /* Since CCP demanded struct FOC is Global Variable, make it visible to main ISR */
     extern FOC_Parameter_t FOC;
