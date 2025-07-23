@@ -53,6 +53,7 @@
 | 2003-10-16  1.41.01  Ds      - change the position of CCP_ROM  
 | 2003-10-21  1.42.00  Tri     - change the position of CCP_ROM
 |***************************************************************************/
+/* Last revised at 2025-06, by 0x050A24 */
 
 
 #ifndef __CCP_H_

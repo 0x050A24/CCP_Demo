@@ -12,10 +12,21 @@
 /*---------------------------------------------------------------------------    */
 #ifndef __CCP_INTERFACE_H_
 #define __CCP_INTERFACE_H_
-#include "ccp.h"
-#include "can.h"
+//< this is embrella header >//
+#include "ccppar.h"
+#include "stddef.h"
 
-extern void ccpSend(CCP_BYTEPTR msg);
-void process_can_rx_buffer(void);
-void ccpUserBackground(void);
+void ccpInit(void);
+
+/* DAQ processor */
+void ccpDaq(CCP_BYTE eventChannel);
+
+/* Command processor */
+void ccpCommand(CCP_BYTEPTR msg);
+
+/* Transmit Notification */
+/* Returns 0 when the CCP driver is idle */
+CCP_BYTE ccpSendCallBack(void);
+
+void ccpUserBackground(void);  // empty for many implementations
 #endif

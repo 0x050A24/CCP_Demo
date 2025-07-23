@@ -75,7 +75,7 @@ def write_file(path: str, lines: List[str]) -> bool:
         lines: 要写入的内容行列表
         
     Returns:
-        True 如果内容发生了变化，False 如果内容相同
+        True 如果内容发生了变化, False 如果内容相同
     """
     new_lines_cleaned = _strip_dynamic_lines(lines)
     last_path = path + ".last"
@@ -222,7 +222,7 @@ def filter_a2l(in_path: str, out_path: str) -> None:
         re.compile(r".*hcan0.*"),            # CAN硬件相关变量
         re.compile(r".*_lut*"),              # 查找表变量
         re.compile(r".*ccp.*"),              # CCP协议相关变量
-        re.compile(r".*GPIOD_InitStruct.*"), # GPIO初始化结构体
+        re.compile(r".*con.*"),
     ]
 
     # 开始处理文件内容
@@ -456,13 +456,13 @@ A2L 文件是汽车ECU标定中使用的标准描述文件格式""",
         "-i", "--input", 
         dest="input", 
         required=True, 
-        help="输入的 A2L 文件路径"
+        help="input A2L file path"
     )
     parser.add_argument(
         "-o", "--output", 
         dest="output", 
         required=True, 
-        help="输出的 A2L 文件路径"
+        help="output A2L file path"
     )
     
     # 解析命令行参数
@@ -470,7 +470,7 @@ A2L 文件是汽车ECU标定中使用的标准描述文件格式""",
     
     # 检查输入文件是否存在
     if not os.path.exists(args.input):
-        print(f"错误: 输入文件 '{args.input}' 不存在")
+        print(f"[ERROR]: input file '{args.input}' does not exist")
         sys.exit(1)
     
     # 确保输出目录存在
@@ -480,9 +480,7 @@ A2L 文件是汽车ECU标定中使用的标准描述文件格式""",
     
     # 执行 A2L 文件过滤
     try:
-        print(f"开始处理 A2L 文件: {args.input}")
         filter_a2l(args.input, args.output)
-        print(f"处理完成，输出文件: {args.output}")
     except Exception as e:
-        print(f"处理过程中发生错误: {e}")
+        print(f"Error occur: {e}")
         sys.exit(1)

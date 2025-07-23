@@ -1,0 +1,22 @@
+# Middleware/CMakeLists.txt
+
+add_library(Middleware_Interface STATIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/Communication_Interface/Src/com_interface.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/Hardware_Interface/Src/hardware_interface.c
+)
+
+target_include_directories(Middleware_Interface PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/Communication_Interface/Inc
+    ${CMAKE_CURRENT_SOURCE_DIR}/Hardware_Interface/Inc
+)
+
+add_library(Middleware INTERFACE)
+
+target_link_libraries(Middleware
+    INTERFACE Middleware_Interface
+)
+
+target_link_libraries(Middleware_Interface 
+PUBLIC Core
+PUBLIC Application
+)

@@ -37,7 +37,7 @@ OF SUCH DAMAGE.
 
 #include <stdint.h>
 
-extern volatile uint16_t systick_ms;  /*!< systick counter in milliseconds */
+extern volatile uint32_t systick_ms;  /*!< systick counter in milliseconds */
 
 extern uint32_t AHB_CLK;
 extern uint32_t APB1_CLK;

@@ -33,8 +33,15 @@ OF SUCH DAMAGE.
 */
 
 #include "gd32f30x_it.h"
-#include "main.h"
+#include "can.h"
+#include "foc.h"
+#include "hardware_interface.h"
+#include "gd32f30x.h"
+#include "injection.h"
 #include "systick.h"
+#include "justfloat.h"
+
+extern volatile uint16_t STOP;
 
 /*!
     \brief      this function handles NMI exception
@@ -42,9 +49,7 @@ OF SUCH DAMAGE.
     \param[out] none
     \retval     none
 */
-void NMI_Handler(void)
-{
-}
+void NMI_Handler(void) {}
 
 /*!
     \brief      this function handles HardFault exception
@@ -54,10 +59,10 @@ void NMI_Handler(void)
 */
 void HardFault_Handler(void)
 {
-    /* if Hard Fault exception occurs, go to infinite loop */
-    while (1)
-    {
-    }
+  /* if Hard Fault exception occurs, go to infinite loop */
+  while (1)
+  {
+  }
 }
 
 /*!
@@ -68,10 +73,10 @@ void HardFault_Handler(void)
 */
 void MemManage_Handler(void)
 {
-    /* if Memory Manage exception occurs, go to infinite loop */
-    while (1)
-    {
-    }
+  /* if Memory Manage exception occurs, go to infinite loop */
+  while (1)
+  {
+  }
 }
 
 /*!
@@ -82,10 +87,10 @@ void MemManage_Handler(void)
 */
 void BusFault_Handler(void)
 {
-    /* if Bus Fault exception occurs, go to infinite loop */
-    while (1)
-    {
-    }
+  /* if Bus Fault exception occurs, go to infinite loop */
+  while (1)
+  {
+  }
 }
 
 /*!
@@ -96,21 +101,12 @@ void BusFault_Handler(void)
 */
 void UsageFault_Handler(void)
 {
-    /* if Usage Fault exception occurs, go to infinite loop */
-    while (1)
-    {
-    }
+  /* if Usage Fault exception occurs, go to infinite loop */
+  while (1)
+  {
+  }
 }
 
-/*!
-    \brief      this function handles SVC exception
-    \param[in]  none
-    \param[out] none
-    \retval     none
-*/
-void SVC_Handler(void)
-{
-}
 
 /*!
     \brief      this function handles DebugMon exception
@@ -118,19 +114,8 @@ void SVC_Handler(void)
     \param[out] none
     \retval     none
 */
-void DebugMon_Handler(void)
-{
-}
+void DebugMon_Handler(void) {}
 
-/*!
-    \brief      this function handles PendSV exception
-    \param[in]  none
-    \param[out] none
-    \retval     none
-*/
-void PendSV_Handler(void)
-{
-}
 
 /*!
     \brief      this function handles SysTick exception
@@ -140,76 +125,120 @@ void PendSV_Handler(void)
 */
 void SysTick_Handler(void)
 {
-    delay_decrement();
-    systick_ms++;
+  delay_decrement();
+  systick_ms++;
+}
+
+void DMA0_Channel3_IRQHandler(void)
+{
+    if (dma_interrupt_flag_get(DMA0, DMA_CH3, DMA_INT_FLAG_FTF))
+    {
+        dma_interrupt_flag_clear(DMA0, DMA_CH3, DMA_INT_FLAG_FTF);
+        Peripheral_SCISendCallback();
+    }
 }
 
 void USBD_LP_CAN0_RX0_IRQHandler(void)
 {
-    can_receive_message_struct rx_msg;
-
-    // 从硬件FIFO取出一帧CAN消息
-    can_message_receive(hcan0.Instance, CAN_FIFO0, &rx_msg);
-
-    // 计算下一个head位置，检查缓冲区是否满
-    uint8_t next_head = (can_buffer_head + 1) % CAN_BUFFER_SIZE;
-    if (next_head != can_buffer_tail)
-    { // 有空间
-        can_buffer[can_buffer_head] = rx_msg;
-        can_buffer_head = next_head;
-    }
-    else
-    {
-        // 缓冲区满了，可以统计丢帧数或其他处理
-    }
+  can_receive_message_struct rx_msg;
+  can_message_receive(CAN0, CAN_FIFO0, &rx_msg);
+  CAN_Buffer_Put(&rx_msg);
 }
 
 void ADC0_1_IRQHandler(void)
 {
-    if (adc_interrupt_flag_get(ADC0, ADC_INT_FLAG_EOIC))
+  if (adc_interrupt_flag_get(ADC0, ADC_INT_FLAG_EOIC))
+  {
+    adc_interrupt_flag_clear(ADC0, ADC_INT_FLAG_EOIC);
+
+    Peripheral_UpdateCurrent();
+    Peripheral_GateState();
+    Peripheral_UpdateUdc();
+    Peripheral_UpdatePosition();
+
+    FOC_Main();
+
+    switch (FOC.Mode)
     {
-        adc_interrupt_flag_clear(ADC0, ADC_INT_FLAG_EOIC);
-        FOC_Main();
+      case INIT:
+      {
+        Peripheral_InitProtectParameter();
+        Peripheral_GetSystemFrequency();
+        Peripheral_CalibrateADC();
+        if (FOC.Udc > 200.0F)
+        {
+          Peripheral_EnableHardwareProtect();
+        }
+        Protect.Flag = No_Protect;
+        FOC.Mode = IDLE;
+        break;
+      }
+      case IDLE:
+      case VF_MODE:
+      case IF_MODE:
+      case Speed:
+      {
+        break;
+      }
+      case Identify:
+      {
+        float DMA_Buffer[3];
+        DMA_Buffer[0] = VoltageInjector.Vq;
+        DMA_Buffer[1] = FOC.Iq;
+        DMA_Buffer[2] = (float)VoltageInjector.Count;
+        justfloat(DMA_Buffer, 3);
+        break;
+      }
+      case EXIT:
+      {
+        Peripheral_DisableHardwareProtect();
+        break;
+      }
+      default:
+        break;
     }
+
+    Peripheral_SetPWMChangePoint();
+  }
 }
 
 void EXTI5_9_IRQHandler(void)
 {
-    if (RESET != exti_interrupt_flag_get(EXTI_7))
-    {
-        TIMER_SWEVG(TIMER0) |= TIMER_SWEVG_BRKG;
-        STOP = 1;
-        exti_interrupt_flag_clear(EXTI_7);
-    }
+  if (RESET != exti_interrupt_flag_get(EXTI_7))
+  {
+    TIMER_SWEVG(TIMER0) |= TIMER_SWEVG_BRKG;
+    STOP = 1;
+    exti_interrupt_flag_clear(EXTI_7);
+  }
 }
 
 extern Protect_Flags Protect_Flag;
-extern ControlStatus Software_BRK;
+extern bool Software_BRK;
 
 void TIMER0_BRK_IRQHandler(void)
 {
-    if (timer_interrupt_flag_get(TIMER0, TIMER_INT_FLAG_BRK))
+  if (timer_interrupt_flag_get(TIMER0, TIMER_INT_FLAG_BRK))
+  {
+    // 清除 Break 中断标志
+    timer_interrupt_flag_clear(TIMER0, TIMER_INT_FLAG_BRK);
+    STOP = 1;
+    if (Software_BRK == false)
     {
-        // 清除 Break 中断标志
-        timer_interrupt_flag_clear(TIMER0, TIMER_INT_FLAG_BRK);
-        STOP = 1;
-        if (Software_BRK == DISABLE)
-        {
-            Protect_Flag |= Hardware_Fault;
-            timer_interrupt_disable(TIMER0, TIMER_INT_BRK); // 禁用BRK中断
-            timer_primary_output_config(TIMER0, DISABLE);
-        }
+      Protect.Flag |= Hardware_Fault;
+      timer_interrupt_disable(TIMER0, TIMER_INT_BRK);  // 禁用BRK中断
+      timer_primary_output_config(TIMER0, DISABLE);
     }
+  }
 }
 
 /* */
 void TIMER3_IRQHandler(void)
 {
-    if (timer_interrupt_flag_get(TIMER3, TIMER_INT_FLAG_CH2))
-    {
-        // 清除 CH2 中断标志
-        timer_interrupt_flag_clear(TIMER3, TIMER_INT_FLAG_CH2);
+  if (timer_interrupt_flag_get(TIMER3, TIMER_INT_FLAG_CH2))
+  {
+    // 清除 CH2 中断标志
+    timer_interrupt_flag_clear(TIMER3, TIMER_INT_FLAG_CH2);
 
-        TIMER_CNT(TIMER3) = 0;
-    }
+    TIMER_CNT(TIMER3) = 0;
+  }
 }

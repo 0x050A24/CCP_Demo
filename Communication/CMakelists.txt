@@ -1,0 +1,26 @@
+#
+add_subdirectory ( Protocol )
+
+set ( COM_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/Src/com.c
+)
+
+add_library ( COM STATIC
+    ${COM_SOURCES}
+)
+
+target_include_directories ( COM PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/Inc
+)
+
+add_library ( Communication INTERFACE )
+
+target_link_libraries ( Communication
+    INTERFACE COM
+    INTERFACE Protocol
+)
+
+target_link_libraries(COM
+    PUBLIC Middleware
+    PUBLIC Protocol
+)

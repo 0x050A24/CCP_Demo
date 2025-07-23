@@ -1,0 +1,12 @@
+# 添加子目录
+add_subdirectory(CMSIS)
+add_subdirectory(GD32F30x_standard_peripheral)
+
+# 创建一个 INTERFACE 层
+add_library(Drivers INTERFACE)
+
+# 链接 CMSIS 和 GD32F30x_standard_peripheral 到 Drivers
+target_link_libraries(Drivers INTERFACE 
+    INTERFACE CMSIS 
+    INTERFACE GD32F30x_standard_peripheral
+)

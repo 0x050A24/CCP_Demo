@@ -1,7 +1,7 @@
 #include "gd32f30x.h"
 #include "systick.h"
 
-volatile uint16_t systick_ms = 0;
+volatile uint32_t systick_ms = 0;
 static volatile uint32_t delay;
 uint32_t AHB_CLK;
 uint32_t APB1_CLK;

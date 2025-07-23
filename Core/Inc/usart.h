@@ -1,8 +1,10 @@
 #ifndef _USART_H
 #define _USART_H
 
-#include "gd32f30x.h"
+#include "gd32f30x.h" // IWYU pragma: export
 #include <unistd.h>
+
+#define USART_BAUDRATE 500000U
 
 /* 定义一个 USART 句柄结构体 */
 typedef struct
@@ -24,5 +26,7 @@ extern USART_HandleTypeDef husart0; // 声明一个外部的 USART 句柄
 
 /* USART 初始化函数声明 */
 void USART_Init(USART_HandleTypeDef *husart);
+void USART_DMA_Init(void);
+void USART_DMA_Send(float* TxBuffer, uint8_t floatnum);
 
 #endif /* GD_USART_H */

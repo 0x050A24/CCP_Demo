@@ -1,0 +1,29 @@
+#
+set ( MCU_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/Src/adc.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/Src/can.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/Src/gpio.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/Src/position_sensor.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/Src/tim.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/Src/usart.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/Src/syscalls.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/Src/sysmem.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/Src/systick.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/Src/temp_table.c
+)
+
+add_library ( MCU STATIC
+    ${MCU_SOURCES}
+)
+
+target_include_directories ( MCU PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/Inc
+)
+
+add_library(Core INTERFACE)
+
+target_link_libraries(Core
+    INTERFACE MCU
+)
+
+target_link_libraries(MCU PUBLIC Drivers)

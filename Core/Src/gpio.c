@@ -1,28 +1,44 @@
 #include "gpio.h"
 
-/**
- * @brief  根据GPIOx的地址使能对应GPIO时钟
- */
-GPIO_InitTypeDef GPIOD_InitStruct = {
-    .Pin = GPIO_PIN_7 |GPIO_PIN_8 | GPIO_PIN_9, //PIN_7 LED PIN_8 Relay PIN_9 Fan
-    .Mode = GPIO_MODE_OUT_PP,  // 输出推挽模式
-    .Speed = GPIO_OSPEED_2MHZ, // 输出速率2MHz
-    .Alternate = 0             // 复用功能未使用
-};
+typedef struct
+{
+    uint32_t Pin;       /*!< 指定要配置的GPIO管脚，可使用 GPIO_PIN_x 宏的组合 */
+    uint32_t Mode;      /*!< 指定选中管脚的工作模式，例如 GPIO_MODE_OUT_PP、GPIO_MODE_IN_FLOATING、GPIO_MODE_AF_PP 等 */
+    uint32_t Speed;     /*!< 指定选中管脚的输出速率，例如 GPIO_OSPEED_50MHZ */
+    uint32_t Alternate; /*!< 指定选中管脚的复用功能（仅当模式为复用时有效） */
+} GPIO_InitTypeDef;
 
-GPIO_InitTypeDef GPIOB_InitStruct = {
-    .Pin = GPIO_PIN_7,
-    .Mode = GPIO_MODE_IPU,  // 上拉输入模式
-    .Speed = GPIO_OSPEED_50MHZ, // 
-    .Alternate = 0             // 复用功能未使用
-};
+static inline void GPIO_Config(uint32_t GPIOx, GPIO_InitTypeDef *GPIO_InitStruct);
 
-GPIO_InitTypeDef GPIOE_InitStruct = {
-    .Pin = GPIO_PIN_7,
-    .Mode = GPIO_MODE_IN_FLOATING,  //
-    .Speed = GPIO_OSPEED_50MHZ, // 
-    .Alternate = 0             // 复用功能未使用
-};
+void GPIO_Init(void)
+{
+
+    GPIO_InitTypeDef GPIOD_InitStruct = {
+        .Pin = GPIO_PIN_7 | GPIO_PIN_8 | GPIO_PIN_9,
+        .Mode = GPIO_MODE_OUT_PP,
+        .Speed = GPIO_OSPEED_2MHZ,
+        .Alternate = 0
+    };
+    
+    GPIO_InitTypeDef GPIOB_InitStruct = {
+        .Pin = GPIO_PIN_7,
+        .Mode = GPIO_MODE_IPU,
+        .Speed = GPIO_OSPEED_50MHZ,
+        .Alternate = 0
+    };
+
+    GPIO_InitTypeDef GPIOE_InitStruct = {
+        .Pin = GPIO_PIN_7,
+        .Mode = GPIO_MODE_IN_FLOATING,
+        .Speed = GPIO_OSPEED_50MHZ,
+        .Alternate = 0
+    };
+
+    // 调用GPIO初始化函数
+    GPIO_Config(GPIOD, &GPIOD_InitStruct);
+    GPIO_Config(GPIOB, &GPIOB_InitStruct);
+    GPIO_Config(GPIOE, &GPIOE_InitStruct);
+}
 
 static void GPIO_Clock_Enable(uint32_t GPIOx)
 {
@@ -45,7 +61,7 @@ static void GPIO_Clock_Enable(uint32_t GPIOx)
     // 如果有其它GPIO端口，根据需要扩展
 }
 
-void GPIO_Init(uint32_t GPIOx, GPIO_InitTypeDef *GPIO_InitStruct)
+static inline void GPIO_Config(uint32_t GPIOx, GPIO_InitTypeDef *GPIO_InitStruct)
 {
     // 自动使能GPIO时钟
     GPIO_Clock_Enable(GPIOx);

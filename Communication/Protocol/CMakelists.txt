@@ -1,0 +1,17 @@
+# Protocol/CMakeLists.txt
+set ( Protocol_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/CCP/Src/ccp.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/CCP/Src/ccp_interface.c
+)
+add_library ( Protocol STATIC
+    ${Protocol_SOURCES}
+)
+
+target_include_directories ( Protocol PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/CCP/Inc
+    ${CMAKE_CURRENT_SOURCE_DIR}/vofa_justfloat
+)
+
+target_link_libraries(Protocol
+    PUBLIC Middleware
+)
