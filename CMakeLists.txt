@@ -110,5 +110,3 @@ add_custom_command ( TARGET ${PROJECT_NAME} POST_BUILD
 target_link_options ( ${PROJECT_NAME} PRIVATE
     -Wl,--no-warn-rwx-segment
 )
-
-set ( CMAKE_CXX_CLANG_TIDY "clang-tidy;-checks=*,google-*" )

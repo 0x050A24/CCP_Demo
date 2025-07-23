@@ -6,7 +6,7 @@ BasedOnStyle: Google
 
 # 基本格式设置
 # 缩进宽度为4个空格
-IndentWidth: 4
+IndentWidth: 2
 # Tab宽度为4个空格
 TabWidth: 4
 # 不使用Tab，只使用空格
