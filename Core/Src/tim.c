@@ -20,10 +20,10 @@ void TIM0_PWM_Init(void) {
     timer_deinit(TIMER0);
     timer_parameter_struct timer_initpara;
     timer_struct_para_init(&timer_initpara);
-    timer_initpara.prescaler = 2;
+    timer_initpara.prescaler = 0;
     timer_initpara.alignedmode = TIMER_COUNTER_CENTER_BOTH;
     timer_initpara.counterdirection = TIMER_COUNTER_UP;  // no sense
-    timer_initpara.period = 10000 - 1;
+    timer_initpara.period = 6000 - 1;
     timer_initpara.clockdivision = TIMER_CKDIV_DIV1;
     timer_initpara.repetitioncounter = 1;  // every 2 update events calls 1 interrupt
     timer_init(TIMER0, &timer_initpara);
