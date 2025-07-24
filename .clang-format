@@ -11,8 +11,8 @@ IndentWidth: 2
 TabWidth: 4
 # 不使用Tab，只使用空格
 UseTab: Never
-# 每行最大字符数限制为100
-ColumnLimit: 100
+# 每行最大字符数限制为80
+ColumnLimit: 80
 
 # 大括号换行风格
 # Allman风格：大括号单独一行

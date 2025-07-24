@@ -4,7 +4,7 @@
 #include "gd32f30x.h" // IWYU pragma: export
 #include <unistd.h>
 
-#define USART_BAUDRATE 500000U
+#define USART_BAUDRATE 4000000U
 
 /* 定义一个 USART 句柄结构体 */
 typedef struct

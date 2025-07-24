@@ -78,8 +78,12 @@
         }
     ],
     "terminal.integrated.defaultProfile.windows": "PowerShell",
-    "cortex-debug.variableUseNaturalFormat": true,
+    "cortex-debug.variableUseNaturalFormat": false,
     "files.associations": {
         "*.h": "c"
+    },
+    "workbench.editorAssociations": {
+        "*.hex": "hexEditor.hexedit",
+        "*.ini": "hexEditor.hexedit"
     },
 }

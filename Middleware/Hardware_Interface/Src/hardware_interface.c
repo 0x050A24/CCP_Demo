@@ -8,6 +8,7 @@
 #include "stdbool.h"
 #include "tim.h"
 #include "usart.h"
+#include "string.h"
 
 volatile uint16_t STOP = 1;
 bool Software_BRK = false;
@@ -178,9 +179,14 @@ void Peripheral_GetSystemFrequency(void)
 
 void Peripheral_TemperatureProtect(void)
 {
-  if (Temperature > 0.35 * Protect.Temperature)
+  if (Temperature > 0.375 * Protect.Temperature)
   {
     gpio_bit_set(FAN_OPEN_PORT, FAN_OPEN_PIN);
+  }
+  if (Temperature < 0.3375 * Protect.Temperature)
+  {
+    gpio_bit_reset(FAN_OPEN_PORT, FAN_OPEN_PIN);
+  
   }
   if (Temperature > Protect.Temperature)
   {

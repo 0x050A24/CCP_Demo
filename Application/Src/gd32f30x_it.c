@@ -43,6 +43,9 @@ OF SUCH DAMAGE.
 
 extern volatile uint16_t STOP;
 
+        float Max_Id = 0.0F;
+        float Theta_Max = 0.0F;
+
 /*!
     \brief      this function handles NMI exception
     \param[in]  none
@@ -156,7 +159,7 @@ void ADC0_1_IRQHandler(void)
     Peripheral_UpdateUdc();
     Peripheral_UpdatePosition();
 
-    FOC_Main();
+    
 
     switch (FOC.Mode)
     {
@@ -170,7 +173,6 @@ void ADC0_1_IRQHandler(void)
           Peripheral_EnableHardwareProtect();
         }
         Protect.Flag = No_Protect;
-        FOC.Mode = IDLE;
         break;
       }
       case IDLE:
@@ -182,11 +184,17 @@ void ADC0_1_IRQHandler(void)
       }
       case Identify:
       {
-        float DMA_Buffer[3];
-        DMA_Buffer[0] = VoltageInjector.Vq;
-        DMA_Buffer[1] = FOC.Iq;
-        DMA_Buffer[2] = (float)VoltageInjector.Count;
-        justfloat(DMA_Buffer, 3);
+        if (FOC.Id> Max_Id)
+        {
+          Max_Id = FOC.Id;
+          Theta_Max = FOC.Theta;
+        }
+        float DMA_Buffer[4];
+        DMA_Buffer[0] = VoltageInjector.Vd;
+        DMA_Buffer[1] = Max_Id;
+        DMA_Buffer[2] = Theta_Max;
+        DMA_Buffer[3] = (float)VoltageInjector.Count;
+        justfloat(DMA_Buffer, 4);
         break;
       }
       case EXIT:
@@ -197,6 +205,8 @@ void ADC0_1_IRQHandler(void)
       default:
         break;
     }
+
+    FOC_Main();
 
     Peripheral_SetPWMChangePoint();
   }
