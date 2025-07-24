@@ -10,6 +10,7 @@ typedef struct
     float Vd;
     float Vq;
     float Imax;
+    float Theta;
     EnableStatus State; // 0: Idle, 1: Injecting
     uint32_t Count;      // Counter for injection duration
 } VoltageInjector_t;
@@ -17,5 +18,6 @@ typedef struct
 extern VoltageInjector_t VoltageInjector;
 
 void SquareWaveGenerater(VoltageInjector_t *inj, FOC_Parameter_t *foc);
+void HighFrequencySquareWaveGenerater(VoltageInjector_t *inj);
 
 #endif

@@ -43,6 +43,7 @@ void FOC_Main(void)
     case INIT:
     {
       Parameter_Init();
+      FOC.Mode = IDLE;
       break;
     }
     case IDLE:
@@ -126,9 +127,12 @@ void FOC_Main(void)
     {
       ParkTransform(Clarke.Ialpha, Clarke.Ibeta, FOC.Theta, &FOC);
 
-      SquareWaveGenerater(&VoltageInjector, &FOC);
+      //SquareWaveGenerater(&VoltageInjector, &FOC);
+      HighFrequencySquareWaveGenerater(&VoltageInjector);
+
       FOC.Ud_ref = VoltageInjector.Vd;
       FOC.Uq_ref = VoltageInjector.Vq;
+      FOC.Theta = VoltageInjector.Theta;  // 保持当前 Theta
       break;
     }
     // !SECTION
@@ -155,7 +159,7 @@ void FOC_UpdateMainFrequency(float f, float Ts, float PWM_ARR)
 void Parameter_Init(void)
 {
   memset(&VF, 0, sizeof(VF_Parameter_t));
-  memset(&FOC, 0, sizeof(FOC_Parameter_t));
+  //memset(&FOC, 0, sizeof(FOC_Parameter_t));
   memset(&Id_PID, 0, sizeof(PID_Controller_t));
   memset(&Iq_PID, 0, sizeof(PID_Controller_t));
   memset(&Speed_PID, 0, sizeof(PID_Controller_t));
@@ -190,14 +194,14 @@ void Parameter_Init(void)
   Speed_PID.previous_error = 0.0F;
   Speed_PID.integral = 0.0F;
   Speed_PID.output = 0.0F;
-  Speed_PID.Ts = T_200Hz;
+  Speed_PID.Ts = 10 * FOC.Ts;
 
   Speed_Ramp.slope = 50.0F;  // limit to 50 rpm/s
   Speed_Ramp.limit_min = -1800.0F;
   Speed_Ramp.limit_max = 1800.0F;
   Speed_Ramp.value = 0.0F;
   Speed_Ramp.target = 0.0F;
-  Speed_Ramp.Ts = T_200Hz;
+  Speed_Ramp.Ts = 10 * FOC.Ts;
 
   Id_PID.Kp = 73.8274273F;
   Id_PID.Ki = 408.40704496F;
