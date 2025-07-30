@@ -2,7 +2,6 @@
 
 #include "common_math.h"
 
-
 VoltageInjector_t VoltageInjector = {
     .State = Disable,
     .Count = 0,
@@ -49,32 +48,48 @@ void SquareWaveGenerater(VoltageInjector_t* inj, FOC_Parameter_t* foc)
   }
 }
 
-void HighFrequencySquareWaveGenerater(VoltageInjector_t* inj)
+void HighFrequencySquareWaveGenerater(VoltageInjector_t* inj, float Udc)
 {
-  uint16_t step = inj->Count % 10;
+  // 更新注入电压幅值为 √3 * Udc
+  inj->Ud_amp = inv_SQRT3 * Udc;
+  inj->Uq_amp = 0.0f;  // 如果你只注入 Ud 分量
 
   if (inj->State == Enable)
   {
-    if (step == 0 || step == 1)
+    if (inj->PulseWidth <= 0)
     {
-      // 注入正向电压（使用当前 Theta，不更新）
+      inj->PulseWidth = 1;
+    }
+
+    uint32_t step = inj->Count % (4 * inj->PulseWidth);
+
+    if (step < inj->PulseWidth)
+    {
+      // 正向脉冲
       inj->Vd = inj->Ud_amp;
       inj->Vq = inj->Uq_amp;
     }
-    else if (step == 2 || step == 3)
+    else if (step < 2 * inj->PulseWidth)
     {
-      // 注入反向电压（使用当前 Theta，不更新）
+      // 空隙（关断）
+      inj->Vd = 0.0f;
+      inj->Vq = 0.0f;
+    }
+    else if (step < 3 * inj->PulseWidth)
+    {
+      // 反向脉冲
       inj->Vd = -inj->Ud_amp;
       inj->Vq = -inj->Uq_amp;
     }
     else
     {
-      inj->Vd = 0.0F;
-      inj->Vq = 0.0F;
+      // 空隙（关断）
+      inj->Vd = 0.0f;
+      inj->Vq = 0.0f;
     }
 
-    // 注入周期结束后（9 -> 0），更新 Theta（延后更新）
-    if (step == 9)
+    // 每完成一个完整周期（4个脉冲段），更新 Theta
+    if (step == (uint32_t)(4 * inj->PulseWidth - 1))
     {
       inj->Theta += M_2PI / 360.0F;
       if (inj->Theta > M_2PI)
@@ -87,10 +102,10 @@ void HighFrequencySquareWaveGenerater(VoltageInjector_t* inj)
   }
   else
   {
-    // 非注入状态保持零电压
-    inj->Vd = 0.0F;
-    inj->Vq = 0.0F;
+    inj->Vd = 0.0f;
+    inj->Vq = 0.0f;
     inj->Count = 0;
-    inj->Theta = 0.0F;  // 重置 Theta
+    inj->Theta = 0.0f;
+    inj->PulseWidth = 0;
   }
 }

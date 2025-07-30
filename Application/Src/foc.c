@@ -57,6 +57,7 @@ void FOC_Main(void)
       FOC.Theta = VF.Theta;
       FOC.Ud_ref = VF.Vref_Ud;
       FOC.Uq_ref = VF.Vref_Uq;
+      ParkTransform(Clarke.Ialpha, Clarke.Ibeta, FOC.Theta, &FOC);
       break;
     }
     // SECTION - IF Mode
@@ -102,7 +103,7 @@ void FOC_Main(void)
       }
 
       FOC.Iq_ref = Speed_PID.output;          // Iq_ref = Speed_PID.output
-      FOC.Id_ref = 0.37446808F * FOC.Iq_ref;  // Id_ref = 0
+      FOC.Id_ref = 0.48648F * FOC.Iq_ref;  // Id_ref = 1.54 * Iq_ref
 
       PID_Controller(FOC.Id_ref, FOC.Id, &Id_PID);
       PID_Controller(FOC.Iq_ref, FOC.Iq, &Iq_PID);
@@ -127,12 +128,12 @@ void FOC_Main(void)
     {
       ParkTransform(Clarke.Ialpha, Clarke.Ibeta, FOC.Theta, &FOC);
 
-      //SquareWaveGenerater(&VoltageInjector, &FOC);
-      HighFrequencySquareWaveGenerater(&VoltageInjector);
+      SquareWaveGenerater(&VoltageInjector, &FOC);
+      //HighFrequencySquareWaveGenerater(&VoltageInjector, FOC.Udc);
 
       FOC.Ud_ref = VoltageInjector.Vd;
       FOC.Uq_ref = VoltageInjector.Vq;
-      FOC.Theta = VoltageInjector.Theta;  // 保持当前 Theta
+      //FOC.Theta = VoltageInjector.Theta;  // 保持当前 Theta
       break;
     }
     // !SECTION
@@ -170,8 +171,8 @@ void Parameter_Init(void)
   STOP = 1;
 
   Motor.Rs = 0.65F;
-  Motor.Ld = 0.001F;
-  Motor.Lq = 0.001F;
+  Motor.Ld = 0.18F;
+  Motor.Lq = 0.12F;
   Motor.Flux = 0.1F;
   Motor.Pn = 2.0F;
   Motor.Position_Scale = 10000 - 1;
@@ -302,7 +303,7 @@ typedef struct
   float y_last;  // 上一次输出值
 } LowPassFilter_t;
 
-LowPassFilter_t Speed_Filter = {.a = 0.9685841F, .y_last = 0.0F};
+LowPassFilter_t Speed_Filter = {.a = 0.98442F, .y_last = 0.0F};
 
 static inline float LowPassFilter_Update(LowPassFilter_t* filter, float x)
 {
@@ -339,7 +340,7 @@ static inline void Theta_Process(void)
 
   last_theta = theta_mech;
 
-  float Speed = delta_theta * FOC.Ts * 60.0F / M_2PI;
+  float Speed = delta_theta * FOC.f * 60.0F / M_2PI;
   FOC.Speed = LowPassFilter_Update(&Speed_Filter, Speed);
 }
 // !SECTION
@@ -412,7 +413,7 @@ static inline void InvParkTransform(float_t Ud, float_t Uq, float_t theta, InvPa
 static inline float Get_Theta(float Freq, float Theta)
 {
   // 电角度递推：θ += ω·Ts，ω = 2π·f
-  Theta += M_2PI * Freq * T_2kHz;
+  Theta += M_2PI * Freq * FOC.Ts;
   if (Theta > M_2PI)
   {
     Theta -= M_2PI;

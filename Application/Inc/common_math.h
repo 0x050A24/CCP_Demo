@@ -22,6 +22,7 @@
 
 /*       Constants      */
 #define SQRT3 1.73205080757F
+#define inv_SQRT3 0.57735026919F      /* 1/√3 */
 #define SQRT3_2 0.86602540378F        /* √3/2 */
 #define M_2PI 6.28318530717958647692F /* 2π */
 #define T_2kHz 0.0005F                /* T 2kHz */
