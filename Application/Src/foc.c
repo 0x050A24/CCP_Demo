@@ -128,8 +128,8 @@ void FOC_Main(void)
     {
       ParkTransform(Clarke.Ialpha, Clarke.Ibeta, FOC.Theta, &FOC);
 
-      SquareWaveGenerater(&VoltageInjector, &FOC);
-      //HighFrequencySquareWaveGenerater(&VoltageInjector, FOC.Udc);
+      //SquareWaveGenerater(&VoltageInjector, &FOC);
+      HighFrequencySquareWaveGenerater(&VoltageInjector);
 
       FOC.Ud_ref = VoltageInjector.Vd;
       FOC.Uq_ref = VoltageInjector.Vq;
