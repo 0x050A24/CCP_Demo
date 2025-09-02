@@ -51,10 +51,6 @@ void HighFrequencySquareWaveGenerater(VoltageInjector_t* inj)
 {
   if (inj->State == Enable)
   {
-    if (inj->PulseWidth < 0)
-    {
-      inj->PulseWidth = 0;
-    }
 
     uint32_t step = inj->Count % (2 * inj->PulseWidth);
 

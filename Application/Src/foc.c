@@ -13,6 +13,7 @@ PID_Controller_t Speed_PID;
 RampGenerator_t Speed_Ramp;
 InvPark_t Inv_Park;
 Clarke_t Clarke;
+MTPA_Coefficients_t MTPA;
 
 float theta_mech = 0.0F;
 float theta_elec = 0.0F;
@@ -103,7 +104,7 @@ void FOC_Main(void)
       }
 
       FOC.Iq_ref = Speed_PID.output;          // Iq_ref = Speed_PID.output
-      FOC.Id_ref = 0.48648F * FOC.Iq_ref;  // Id_ref = 1.54 * Iq_ref
+      FOC.Id_ref = ((MTPA.A * FOC.Iq_ref + MTPA.B) * FOC.Iq_ref + MTPA.C) * FOC.Iq_ref + MTPA.D;
 
       PID_Controller(FOC.Id_ref, FOC.Id, &Id_PID);
       PID_Controller(FOC.Iq_ref, FOC.Iq, &Iq_PID);
@@ -167,6 +168,7 @@ void Parameter_Init(void)
   memset(&Inv_Park, 0, sizeof(InvPark_t));
   memset(&Speed_Ramp, 0, sizeof(RampGenerator_t));
   memset(&Motor, 0, sizeof(Motor_Parameter_t));
+  memset(&MTPA, 0, sizeof(MTPA_Coefficients_t));
 
   STOP = 1;
 
@@ -179,6 +181,11 @@ void Parameter_Init(void)
   Motor.Resolver_Pn = 1.0F;
   Motor.inv_MotorPn = 1.0F / 2.0F;  // Pn
   Motor.Position_Offset = 107.0F;
+
+  MTPA.A = 0.00061141F;
+  MTPA.B = -0.014627F;
+  MTPA.C = 0.34737F;
+  MTPA.D = 0.068985F;
 
 #ifdef Resolver_Position
   theta_factor = M_2PI / ((Motor.Position_Scale + 1) * Motor.Resolver_Pn);

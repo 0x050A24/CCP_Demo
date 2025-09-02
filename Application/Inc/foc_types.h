@@ -125,4 +125,12 @@ typedef struct
     float Tcm3;
 } SVPWM_t;
 
+typedef struct
+{
+    float A;
+    float B;
+    float C;
+    float D;
+} MTPA_Coefficients_t;
+
 #endif /* _FOC_TYPES_H_ */
