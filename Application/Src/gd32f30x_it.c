@@ -179,6 +179,13 @@ void ADC0_1_IRQHandler(void)
       case IF_MODE:
       case Speed:
       {
+        float DMA_Buffer[5];
+        DMA_Buffer[0] = FOC.Ia;
+        DMA_Buffer[1] = FOC.Ib;
+        DMA_Buffer[2] = FOC.Ic;
+        DMA_Buffer[3] = FOC.Id;
+        DMA_Buffer[4] = FOC.Iq;
+        justfloat(DMA_Buffer, 5);
         break;
       }
       case Identify:
