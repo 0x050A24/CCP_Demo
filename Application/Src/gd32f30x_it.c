@@ -189,13 +189,13 @@ void ADC0_1_IRQHandler(void)
           Theta_max = FOC.Theta;
         }
 
-        float DMA_Buffer[5];
-        DMA_Buffer[0] = VoltageInjector.Vd;
-        DMA_Buffer[1] = VoltageInjector.Vq;
-        DMA_Buffer[2] = FOC.Id;
-        DMA_Buffer[3] = FOC.Iq;
-        DMA_Buffer[4] = (float)VoltageInjector.Count;
-        justfloat(DMA_Buffer, 5);
+        // float DMA_Buffer[5];
+        // DMA_Buffer[0] = VoltageInjector.Vd;
+        // DMA_Buffer[1] = VoltageInjector.Vq;
+        // DMA_Buffer[2] = FOC.Id;
+        // DMA_Buffer[3] = FOC.Iq;
+        // DMA_Buffer[4] = (float)VoltageInjector.Count;
+        // justfloat(DMA_Buffer, 5);
         break;
       }
       case EXIT:

@@ -1,6 +1,6 @@
 #include "foc.h"
+#include "MTPA.h"
 #include "hardware_interface.h"
-#include "injection.h"
 #include "position_sensor.h"
 
 Motor_Parameter_t Motor;
@@ -20,6 +20,9 @@ float theta_elec = 0.0F;
 float theta_factor = 0.0F;  // Sensor data to mechanic angle conversion factor
 
 float Speed_Ref = 0.0F;
+      VoltageInjector_t inj = {0};
+      FluxExperiment_t Experiment = {0};
+      
 
 static inline float Get_Theta(float Freq, float Theta);
 static inline void Parameter_Init(void);
@@ -45,6 +48,9 @@ void FOC_Main(void)
     {
       Parameter_Init();
       FOC.Mode = IDLE;
+
+      Experiment_Init(&Experiment, &inj, FOC.Ts, 512, 20, 10, 20, 2, 10, 1, 200, false);
+      Experiment_Start(&Experiment);
       break;
     }
     case IDLE:
@@ -103,7 +109,7 @@ void FOC_Main(void)
         PID_Controller(RampGenerator(&Speed_Ramp), FOC.Speed, &Speed_PID);
       }
 
-      FOC.Iq_ref = Speed_PID.output;          // Iq_ref = Speed_PID.output
+      FOC.Iq_ref = Speed_PID.output;  // Iq_ref = Speed_PID.output
       FOC.Id_ref = ((MTPA.A * FOC.Iq_ref + MTPA.B) * FOC.Iq_ref + MTPA.C) * FOC.Iq_ref + MTPA.D;
 
       PID_Controller(FOC.Id_ref, FOC.Id, &Id_PID);
@@ -129,12 +135,18 @@ void FOC_Main(void)
     {
       ParkTransform(Clarke.Ialpha, Clarke.Ibeta, FOC.Theta, &FOC);
 
-      //SquareWaveGenerater(&VoltageInjector, &FOC);
-      HighFrequencySquareWaveGenerater(&VoltageInjector);
+      // //SquareWaveGenerater(&VoltageInjector, &FOC);
+      // HighFrequencySquareWaveGenerater(&VoltageInjector);
 
-      FOC.Ud_ref = VoltageInjector.Vd;
-      FOC.Uq_ref = VoltageInjector.Vq;
-      //FOC.Theta = VoltageInjector.Theta;  // 保持当前 Theta
+      // FOC.Ud_ref = VoltageInjector.Vd;
+      // FOC.Uq_ref = VoltageInjector.Vq;
+      // //FOC.Theta = VoltageInjector.Theta;  // 保持当前 Theta
+       if (STOP == 0)
+       {
+      //   Speed_Ref = Estimate_Rs(FOC.Id, &FOC.Ud_ref, &Motor.Rs);
+      Experiment_Step(&Experiment, FOC.Id, FOC.Iq, &FOC.Ud_ref, &FOC.Uq_ref, 0);
+       }
+      
       break;
     }
     // !SECTION
@@ -161,7 +173,7 @@ void FOC_UpdateMainFrequency(float f, float Ts, float PWM_ARR)
 void Parameter_Init(void)
 {
   memset(&VF, 0, sizeof(VF_Parameter_t));
-  //memset(&FOC, 0, sizeof(FOC_Parameter_t));
+  // memset(&FOC, 0, sizeof(FOC_Parameter_t));
   memset(&Id_PID, 0, sizeof(PID_Controller_t));
   memset(&Iq_PID, 0, sizeof(PID_Controller_t));
   memset(&Speed_PID, 0, sizeof(PID_Controller_t));
