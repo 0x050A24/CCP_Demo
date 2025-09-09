@@ -83,6 +83,7 @@
         "gd32f30x.h": "c",
         "cstring": "c",
         "variant": "c",
-        "cstdlib": "c"
+        "cstdlib": "c",
+        "string.h": "c"
     },
 }

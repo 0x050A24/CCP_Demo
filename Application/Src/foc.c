@@ -2,7 +2,7 @@
 #include "hardware_interface.h"
 #include "injection.h"
 #include "position_sensor.h"
-
+#include <MTPA.h>
 Motor_Parameter_t Motor;
 FOC_Parameter_t FOC;
 VF_Parameter_t VF;
@@ -104,8 +104,18 @@ void FOC_Main(void)
       }
 
       FOC.Iq_ref = Speed_PID.output;          // Iq_ref = Speed_PID.output
-      FOC.Id_ref = ((MTPA.A * FOC.Iq_ref + MTPA.B) * FOC.Iq_ref + MTPA.C) * FOC.Iq_ref + MTPA.D;
-
+     //FOC.Iq_ref =1.2;//test
+     // FOC.Id_ref = ((MTPA.A * FOC.Iq_ref + MTPA.B) * FOC.Iq_ref + MTPA.C) * FOC.Iq_ref + MTPA.D;
+      if (FOC.Iq_ref>=0)
+        {
+      MTPA_update(FOC.Iq_ref);
+      FOC.Id_ref = Id_mtpa;
+        }
+        else
+        {
+      MTPA_update(-FOC.Iq_ref);
+      FOC.Id_ref = -Id_mtpa;
+        }
       PID_Controller(FOC.Id_ref, FOC.Id, &Id_PID);
       PID_Controller(FOC.Iq_ref, FOC.Iq, &Iq_PID);
 
@@ -214,8 +224,8 @@ void Parameter_Init(void)
   Id_PID.Kp = 73.8274273F;
   Id_PID.Ki = 408.40704496F;
   Id_PID.Kd = 0.0F;
-  Id_PID.MaxOutput = 50.0F;  // Maximum Udc/sqrt(3)
-  Id_PID.MinOutput = -50.0F;
+  Id_PID.MaxOutput = 80.0F;  // Maximum Udc/sqrt(3)
+  Id_PID.MinOutput = -80.0F;
   Id_PID.IntegralLimit = 50.0F;
   Id_PID.previous_error = 0.0F;
   Id_PID.integral = 0.0F;
@@ -225,8 +235,8 @@ void Parameter_Init(void)
   Iq_PID.Kp = 27.646015F;
   Iq_PID.Ki = 408.40704496F;
   Iq_PID.Kd = 0.0F;
-  Iq_PID.MaxOutput = 50.0F;
-  Iq_PID.MinOutput = -50.0F;
+  Iq_PID.MaxOutput = 80.0F;
+  Iq_PID.MinOutput = -80.0F;
   Iq_PID.IntegralLimit = 50.0F;
   Iq_PID.previous_error = 0.0F;
   Iq_PID.integral = 0.0F;

@@ -9,7 +9,7 @@
 #include "systick.h"
 #include "tim.h"
 #include "usart.h"
-
+#include "MTPA.h"
 volatile uint32_t DWT_Count = 0;
 
 bool pin = false;
@@ -41,10 +41,20 @@ int main(void)
   CAN_Init();
   /* open fan and relay */
   relay_init();
+  
   /* configure NVIC and enable interrupt */
   EXIT_Config();
   nvic_config();
   COM_ProtocolInit();
+  float psi_min = 0.01; // 最小磁链幅值 (Wb)
+  float psi_1 = 0.2;   // 第一个磁链幅值 (Wb)
+  float psi_2 = 0.3;   // 第二个磁链幅值 (Wb)
+  float psi_3 = 0.36;  // 第三个磁链幅值 (Wb)
+  float psi_mid = 0.4;  // 中间磁链幅值 (Wb)
+  float psi_4 = 0.6;   // 第四个磁链幅值 (Wb)
+  float psi_5 = 0.7;   // 第五个磁链幅值 (Wb)
+  float psi_max = 0.84; // 最大磁链幅值 (Wb  );
+   MTPA_init( psi_min, psi_1, psi_2, psi_3,  psi_mid, psi_4, psi_5,  psi_max);//
   while (1)
   {
     COM_CANProtocol();
