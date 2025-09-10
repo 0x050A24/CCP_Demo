@@ -17,14 +17,33 @@
 
 /* Estimate_Rs 与 SquareWaveGenerater 原型（你已有的实现） */
 static inline bool Estimate_Rs(float Current, float* Voltage_out, float* Rs);
-void SquareWaveGenerater(VoltageInjector_t* inj, float Id, float Iq, float* Ud, float* Uq);
 
 /* 结果结构：每个 Imax 只保存最终的 avg_max_psi（和 Imax 值） */
+
+// 用 volatile 保证编译器不会优化掉，A2L 能映射到这些数组
+volatile float g_results_Imax[MAX_STEPS];
+volatile float g_results_avgmax[MAX_STEPS];
+volatile uint32_t g_results_cycles[MAX_STEPS];
+
+// 当前步索引
+volatile uint32_t g_result_index = 0;
+
+// 保存一次结果
+void save_result(float Imax, float avgmax, uint32_t cycles)
+{
+  if (g_result_index < MAX_STEPS)
+  {
+    g_result_index++;
+    g_results_Imax[g_result_index] = Imax;
+    g_results_avgmax[g_result_index] = avgmax;
+    g_results_cycles[g_result_index] = cycles;
+  }
+}
 
 /* ---------- 初始化 ---------- */
 void Experiment_Init(FluxExperiment_t* exp, VoltageInjector_t* inj, float Ts, int sample_capacity,
                      int capture_cycles, int select_cycles, int max_steps, int start_I, int final_I,
-                     int step_dir, float inject_amp, bool use_inj_for_rs)
+                     int step_dir, float inject_amp)
 {
   // clip params
   if (sample_capacity > SAMPLE_CAPACITY) sample_capacity = SAMPLE_CAPACITY;
@@ -42,7 +61,7 @@ void Experiment_Init(FluxExperiment_t* exp, VoltageInjector_t* inj, float Ts, in
   exp->final_I = final_I;
   exp->step_dir = (step_dir >= 0) ? 1 : -1;
   exp->inject_amp = inject_amp;
-  exp->use_inj_for_rs = use_inj_for_rs;
+  exp->Running = false;
   exp->inj = inj;
   exp->pos = 0;
   exp->edge_count = 0;
@@ -52,28 +71,7 @@ void Experiment_Init(FluxExperiment_t* exp, VoltageInjector_t* inj, float Ts, in
   exp->last_Vq = inj ? inj->Vq : 0.0f;
 }
 
-/* ---------- 启动实验（开始先估 Rs） ---------- */
-void Experiment_Start(FluxExperiment_t* exp)
-{
-  if (!exp) return;
-  exp->pos = 0;
-  exp->edge_count = 0;
-  exp->step_index = 0;
-  exp->state = EST_RS;
-
-  // 初始 inj 配置（注入器先关闭或由 Estimate_Rs 控制）
-  if (exp->inj)
-  {
-    exp->inj->State = false;  // Rs 估计阶段不一定用方波注入
-  }
-}
-
-/* ---------- 每个采样周期调用的主步函数 ----------
-   调用前先调用 SquareWaveGenerater(&inj, Id, Iq, &Ud, &Uq),
-   然后将测量和 Ud/Uq 传入这里（非阻塞）。
-*/
-void Experiment_Step(FluxExperiment_t* exp, float Id, float Iq, float* Ud, float* Uq,
-                     uint32_t count)
+void Experiment_Step(FluxExperiment_t* exp, float Id, float Iq, float* Ud, float* Uq)
 {
   if (!exp) return;
 
@@ -82,6 +80,15 @@ void Experiment_Step(FluxExperiment_t* exp, float Id, float Iq, float* Ud, float
     case WAIT:
       *Ud = 0.0f;
       *Uq = 0.0f;
+      //   if (exp->Running && exp->Rs_est == 0.0F)
+      //   {
+      //     exp->state = EST_RS;
+      //   }
+      //   if (exp->Running && exp->Rs_est != 0.0F)
+      //   {
+      //     exp->state = INJECT_COLLECT;
+      //   }
+
       return;
 
     case EST_RS:
@@ -107,9 +114,9 @@ void Experiment_Step(FluxExperiment_t* exp, float Id, float Iq, float* Ud, float
         // 初始化方波注入器
         if (exp->inj)
         {
-          exp->inj->Ud_amp = exp->inject_amp;
-          exp->inj->Uq_amp = exp->inject_amp;
-          exp->inj->Imax = (float)exp->start_I;
+          exp->inj->Ud_amp = 0.0F;
+          exp->inj->Uq_amp = 0.0F;
+          exp->inj->Imax = 0.0F;
           exp->inj->Count = 0;
           exp->inj->State = false;
         }
@@ -126,57 +133,124 @@ void Experiment_Step(FluxExperiment_t* exp, float Id, float Iq, float* Ud, float
 
     case INJECT_COLLECT:
     {
-      // 写 buffer（避免越界）
-      if (exp->pos < exp->sample_capacity)
+      float Ud_out = 0.0f, Uq_out = 0.0f;
+
+      if (exp->inj->State == false)
       {
-        int idx = exp->pos;
-        exp->Ud_buf[idx] = *Ud;
-        exp->Id_buf[idx] = Id;
-        exp->Uq_buf[idx] = *Uq;
-        exp->Iq_buf[idx] = Iq;
-        exp->count_buf[idx] = count;
+        Ud_out = 0.0F;
+        Uq_out = 0.0F;
+        *Ud = 0.0F;
+        *Uq = 0.0F;
+        break;
+      }
 
-        // 积分（前向 Euler）
-        if (idx == 0)
+      if (exp->inj->State)
+      {
+        // --- 方波注入 D 轴 ---
+        if (exp->inj->mode == INJECT_D || exp->inj->mode == INJECT_DQ)
         {
-          exp->psi_d_buf[idx] = 0.0f;
-          exp->psi_q_buf[idx] = 0.0f;
-        }
-        else
-        {
-          int prev = idx - 1;
-          float integrand_d = (*Ud - exp->Rs_est * Id);
-          float integrand_q = (*Uq - exp->Rs_est * Iq);
-          exp->psi_d_buf[idx] = exp->psi_d_buf[prev] + exp->Ts * integrand_d;
-          exp->psi_q_buf[idx] = exp->psi_q_buf[prev] + exp->Ts * integrand_q;
+          if (Id >= exp->inj->Imax)
+          {
+            exp->inj->inj_state_d = -1;
+          }
+          else if (Id <= -exp->inj->Imax)
+          {
+            exp->inj->inj_state_d = +1;
+          }
+          Ud_out = (exp->inj->inj_state_d >= 0) ? exp->inj->Ud_amp : -exp->inj->Ud_amp;
         }
 
-        // 边界检测：检测注入器 Vd 的切换
-        float curVd = exp->inj ? exp->inj->Vd : 0.0f;
-        const float EDGE_THRESH = 1e-6f;
-        if (fabsf(curVd - exp->last_Vd) > EDGE_THRESH)
+        // --- 方波注入 Q 轴 ---
+        if (exp->inj->mode == INJECT_Q || exp->inj->mode == INJECT_DQ)
+        {
+          if (Iq >= exp->inj->Imax)
+          {
+            exp->inj->inj_state_q = -1;
+          }
+          else if (Iq <= -exp->inj->Imax)
+          {
+            exp->inj->inj_state_q = +1;
+          }
+          Uq_out = (exp->inj->inj_state_q >= 0) ? exp->inj->Uq_amp : -exp->inj->Uq_amp;
+        }
+
+        // 本次输出电压
+        *Ud = Ud_out;
+        *Uq = Uq_out;
+      }
+
+      // --- 边沿检测 ---
+      if (exp->inj->mode == INJECT_D || exp->inj->mode == INJECT_DQ)
+      {
+        if (Ud_out == -exp->last_Vd)
         {
           if (exp->edge_count < (exp->capture_cycles + 2))
           {
-            exp->edge_idx[exp->edge_count++] = idx;
+            exp->edge_idx[exp->edge_count++] = exp->pos;
           }
         }
-        exp->last_Vd = curVd;
-        exp->last_Vq = exp->inj ? exp->inj->Vq : 0.0f;
-
-        exp->pos++;
       }
-      else
+      if (exp->inj->mode == INJECT_Q)
       {
-        // buffer 满，转处理
-        exp->state = PROCESS;
+        if (Uq_out == -exp->last_Vq)
+        {
+          if (exp->edge_count < (exp->capture_cycles + 2))
+          {
+            exp->edge_idx[exp->edge_count++] = exp->pos;
+          }
+        }
       }
 
-      // 检查是否捕获到足够的周期（edges >= cycles + 1）
+      // --- 存 buffer ---
+      if (exp->edge_count != 0)
+      {
+        if (exp->pos < exp->sample_capacity)
+        {
+          int idx = exp->pos;
+          exp->Ud_buf[idx] = exp->last_Vd;
+          exp->Id_buf[idx] = Id;
+          exp->Uq_buf[idx] = exp->last_Vq;
+          exp->Iq_buf[idx] = Iq;
+
+          // 积分（前向 Euler）
+          if (idx == 0)
+          {
+            exp->psi_d_buf[idx] = 0.0f;
+            exp->psi_q_buf[idx] = 0.0f;
+          }
+          else
+          {
+            int prev = idx - 1;
+            float integrand_d = (exp->last_Vd - exp->Rs_est * Id);
+            float integrand_q = (exp->last_Vq - exp->Rs_est * Iq);
+            exp->psi_d_buf[idx] = exp->psi_d_buf[prev] + exp->Ts * integrand_d;
+            exp->psi_q_buf[idx] = exp->psi_q_buf[prev] + exp->Ts * integrand_q;
+          }
+
+          exp->pos++;
+        }
+        else
+        {
+          // buffer 满，进入处理
+          exp->state = PROCESS;
+          exp->inj->State = false;
+          Ud_out = 0.0F;
+          Uq_out = 0.0F;
+          *Ud = 0.0F;
+          *Uq = 0.0F;
+        }
+      }
+
+      // --- 检查是否捕获到足够的周期 ---
       if (exp->edge_count >= (exp->capture_cycles + 1))
       {
         exp->state = PROCESS;
+        exp->inj->State = false;
+        *Ud = 0.0F;
+        *Uq = 0.0F;
       }
+      exp->last_Vd = Ud_out;  // 最后更新
+      exp->last_Vq = Uq_out;
       break;
     }
 
@@ -233,7 +307,7 @@ void Experiment_Step(FluxExperiment_t* exp, float Id, float Iq, float* Ud, float
           cnt++;
         }
         if (cnt == 0) continue;
-        float mean = s / cnt;
+        float mean = s / (float)cnt;
         // 找到该周期内去均值后的最大 psi
         float max_psi = -1e30f;
         for (int i = s_idx; i < e_idx; ++i)
@@ -250,11 +324,11 @@ void Experiment_Step(FluxExperiment_t* exp, float Id, float Iq, float* Ud, float
 
       if (counted > 0)
       {
-        ImaxResult_t* r = &exp->results[exp->step_index];
-        r->Imax_value = exp->inj ? exp->inj->Imax : 0.0f;
-        r->avg_max_psi = sum_max_psi / (float)counted;
-        r->cycles_used = counted;
+        exp->results[exp->step_index].Imax_value = exp->inj ? exp->inj->Imax : 0.0f;
+        exp->results[exp->step_index].avg_max_psi = sum_max_psi / (float)counted;
+        exp->results[exp->step_index].cycles_used = counted;
         exp->step_index++;
+        save_result(exp->inj ? exp->inj->Imax : 0.0f, sum_max_psi / (float)counted, counted);
       }
       else
       {
@@ -267,19 +341,23 @@ void Experiment_Step(FluxExperiment_t* exp, float Id, float Iq, float* Ud, float
 
     case NEXT_I:
     {
-      // 判断是否到达边界
-      int next_I = (int)(exp->inj ? exp->inj->Imax : exp->start_I) +
-                   (-1 * (exp->step_dir == -1 ? 1 : -1)) * 0;  // no-op (fix below)
-      // simpler：直接使用 step_dir to decrease by 1 each time
       if (exp->inj)
       {
         int curI = (int)exp->inj->Imax;
-        int newI =
-            curI -
-            exp->step_dir;  // if step_dir == -1 => newI = curI +1? Wait ensure direction correct.
-        // Let's define step_dir == -1 means decrease by 1 each time (curI + step_dir)
-        newI = curI + exp->step_dir;  // step_dir = -1 => decrease
-        // 检查终止
+        int newI = 0;
+
+        if (exp->step_index == 0)
+        {
+          // 第一次，直接跳到 start_I
+          newI = exp->start_I;
+        }
+        else
+        {
+          // 后续按 step_dir 增减
+          newI = curI + exp->step_dir;
+        }
+
+        // 检查是否超出范围
         bool finished = false;
         if (exp->step_dir < 0)
         {
@@ -289,16 +367,15 @@ void Experiment_Step(FluxExperiment_t* exp, float Id, float Iq, float* Ud, float
         {
           if (newI > exp->final_I) finished = true;
         }
+
         if (finished || exp->step_index >= exp->max_steps)
         {
-          // 结束实验
-          if (exp->inj) exp->inj->State = false;
+          exp->inj->State = false;
           exp->state = DONE;
         }
         else
         {
-          // 设置下一个 Imax 并重置 buffer
-          if (exp->inj) exp->inj->Imax = (float)newI;
+          exp->inj->Imax = (float)newI;
           exp->pos = 0;
           exp->edge_count = 0;
           exp->last_Vd = exp->inj ? exp->inj->Vd : 0.0f;
@@ -308,7 +385,6 @@ void Experiment_Step(FluxExperiment_t* exp, float Id, float Iq, float* Ud, float
       }
       else
       {
-        // 没有 inj 指针，直接结束
         exp->state = DONE;
       }
       break;
@@ -365,8 +441,7 @@ const ImaxResult_t* Experiment_GetResult(FluxExperiment_t* exp, int idx)
 /* 注意与扩展
  - 当前实现以 d 轴为例计算 psi（psi_d_buf）。若要支持 q 轴（或同时支持），把处理段改成分别对
  psi_d_buf 与 psi_q_buf 计算最大值并保存。
- - 如果 Estimate_Rs 需要单独的电压通路（不是通过 SquareWaveGenerater），请把 exp->use_inj_for_rs
- 设为 false，并在外部将 Voltage_out 作用到电机（例如 DAC / direct PWM）。
+
  - 为保证实时性，建议把 Experiment_Step 的 PROCESS 阶段在主循环中运行（即在中断中只 push sample
  并在主循环检测到 state == PROCESS 再做 heavy calc）。当前实现把 PROCESS 放在 Experiment_Step
  里（同步执行），若你的中断时间有限，请拆分。
@@ -379,7 +454,7 @@ bool Estimate_Rs(float Current, float* Voltage_out, float* Rs)
   static float Rs_last = 0.0F;
   static float Rs_new = 0.0F;
   static uint16_t hold = 0;
-  static uint8_t step = 0;
+  static uint8_t est_step = 0;
   static bool first = true;
   static uint8_t done_flag = 0;
   static float I_filtered = 0.0F;  // 新增：滤波后的电流 //
@@ -413,33 +488,35 @@ bool Estimate_Rs(float Current, float* Voltage_out, float* Rs)
       if (fabsf(delta_I) < 1e-4f)
       {
         first = true;
-        step = 0;
+        est_step = 0;
       }
       else
       {
         Rs_new = (V_now - V_last) / delta_I;
         float I_predict = I_last + (VOLTAGE_STEP / Rs_new);
-        if ((fabsf(Rs_new - Rs_last) < RS_THRESHOLD && step > 0) &&
+        if ((fabsf(Rs_new - Rs_last) < RS_THRESHOLD && est_step > 0) &&
             (fabsf(I_filtered) >= CURRENT_LIMIT * CURRENT_RATIO))
         {
           *Rs = Rs_new;
           first = true;
-          step = 0;
+          est_step = 0;
           done_flag = 1;
         }
         else if (fabsf(I_filtered) > CURRENT_LIMIT)
         {
           *Rs = Rs_new;
           first = true;
-          step = 0;
+          est_step = 0;
           done_flag = 2;
+          *Voltage_out = 0.0F;
         }
-        else if (++step > MAX_STEPS)
+        else if (++est_step > MAX_STEPS)
         {
           *Rs = Rs_new;
           first = true;
-          step = 0;
+          est_step = 0;
           done_flag = 4;
+          *Voltage_out = 0.0F;
         }
         else
         {  // 只有预计电流不会超限时才步进
@@ -456,42 +533,4 @@ bool Estimate_Rs(float Current, float* Voltage_out, float* Rs)
     }
   }
   return done_flag;
-}
-
-void SquareWaveGenerater(VoltageInjector_t* inj, float Id, float Iq, float* Ud, float* Uq)
-{
-  if (inj->State == true)
-  {
-    *Ud = 0.0F;
-    *Uq = 0.0F;
-
-    // Ud 分量判断
-    if (inj->Vd >= 0.0F)
-    {
-      *Ud = (Id >= inj->Imax) ? -inj->Ud_amp : inj->Ud_amp;
-    }
-    else
-    {
-      *Ud = (Id <= -inj->Imax) ? inj->Ud_amp : -inj->Ud_amp;
-    }
-
-    // Uq 分量判断
-    if (inj->Vq >= 0.0F)
-    {
-      *Uq = (Iq >= inj->Imax) ? -inj->Uq_amp : inj->Uq_amp;
-    }
-    else
-    {
-      *Uq = (Iq <= -inj->Imax) ? inj->Uq_amp : -inj->Uq_amp;
-    }
-
-    inj->Vd = *Ud;
-    inj->Vq = *Uq;
-    inj->Count++;
-  }
-  else
-  {
-    inj->Vd = 0.0F;
-    inj->Vq = 0.0F;
-  }
 }

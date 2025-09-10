@@ -215,7 +215,7 @@ def filter_a2l(in_path: str, out_path: str) -> None:
     # 定义要跳过的变量名模式
     # 这些模式用于过滤掉不需要在标定工具中显示的内部变量
     skip_variable_patterns = [
-        re.compile(r".*\._\d+_\..*"),        # 编译器生成的临时变量
+        #re.compile(r".*\._\d+_\..*"),        # 编译器生成的临时变量
         re.compile(r".*Table.*"),            # 各种表格变量
         re.compile(r".*Coef.*"),             # 系数变量
         re.compile(r".*husart0.*"),          # UART硬件相关变量

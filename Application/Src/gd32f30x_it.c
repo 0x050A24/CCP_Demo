@@ -37,7 +37,6 @@ OF SUCH DAMAGE.
 #include "foc.h"
 #include "hardware_interface.h"
 #include "gd32f30x.h"
-#include "injection.h"
 #include "systick.h"
 #include "justfloat.h"
 

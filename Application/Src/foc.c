@@ -20,9 +20,9 @@ float theta_elec = 0.0F;
 float theta_factor = 0.0F;  // Sensor data to mechanic angle conversion factor
 
 float Speed_Ref = 0.0F;
-      VoltageInjector_t inj = {0};
-      FluxExperiment_t Experiment = {0};
-      
+VoltageInjector_t inj = {0};
+ImaxResult_t Results[MAX_STEPS] = {0};
+FluxExperiment_t Experiment = {0};
 
 static inline float Get_Theta(float Freq, float Theta);
 static inline void Parameter_Init(void);
@@ -49,8 +49,7 @@ void FOC_Main(void)
       Parameter_Init();
       FOC.Mode = IDLE;
 
-      Experiment_Init(&Experiment, &inj, FOC.Ts, 512, 20, 10, 20, 2, 10, 1, 200, false);
-      Experiment_Start(&Experiment);
+      Experiment_Init(&Experiment, &inj, FOC.Ts, 1024, 2, 2, 20, 2, 10, 1, 200);
       break;
     }
     case IDLE:
@@ -141,12 +140,11 @@ void FOC_Main(void)
       // FOC.Ud_ref = VoltageInjector.Vd;
       // FOC.Uq_ref = VoltageInjector.Vq;
       // //FOC.Theta = VoltageInjector.Theta;  // 保持当前 Theta
-       if (STOP == 0)
-       {
-      //   Speed_Ref = Estimate_Rs(FOC.Id, &FOC.Ud_ref, &Motor.Rs);
-      Experiment_Step(&Experiment, FOC.Id, FOC.Iq, &FOC.Ud_ref, &FOC.Uq_ref, 0);
-       }
-      
+      if (STOP == 0)
+      {
+        Experiment_Step(&Experiment, FOC.Id, FOC.Iq, &FOC.Ud_ref, &FOC.Uq_ref);
+      }
+
       break;
     }
     // !SECTION
