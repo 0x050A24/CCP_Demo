@@ -20,8 +20,6 @@ float theta_elec = 0.0F;
 float theta_factor = 0.0F;  // Sensor data to mechanic angle conversion factor
 
 float Speed_Ref = 0.0F;
-VoltageInjector_t inj = {0};
-ImaxResult_t Results[MAX_STEPS] = {0};
 FluxExperiment_t Experiment = {0};
 
 static inline float Get_Theta(float Freq, float Theta);
@@ -49,7 +47,7 @@ void FOC_Main(void)
       Parameter_Init();
       FOC.Mode = IDLE;
 
-      Experiment_Init(&Experiment, &inj, FOC.Ts, 1024, 2, 2, 20, 2, 10, 1, 200);
+      Experiment_Init(&Experiment, FOC.Ts, 512, 2, 20, 2, 10, 1, 200);
       break;
     }
     case IDLE:

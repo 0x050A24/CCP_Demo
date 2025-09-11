@@ -43,34 +43,29 @@ void save_result(float Imax, float avgmax, uint32_t cycles)
 }
 
 /* ---------- 初始化 ---------- */
-void Experiment_Init(FluxExperiment_t* exp, VoltageInjector_t* inj, float Ts, int sample_capacity,
-                     int capture_cycles, int select_cycles, int max_steps, int start_I, int final_I,
-                     int step_dir, float inject_amp)
+void Experiment_Init(FluxExperiment_t* exp, float Ts, int sample_capacity, int repeat_times,
+                     int max_steps, int start_I, int final_I, int step_dir, float inject_amp)
 {
   // clip params
   if (sample_capacity > SAMPLE_CAPACITY) sample_capacity = SAMPLE_CAPACITY;
-  if (capture_cycles > CAPTURE_CYCLES) capture_cycles = CAPTURE_CYCLES;
-  if (select_cycles > SELECT_CYCLES) select_cycles = SELECT_CYCLES;
   if (max_steps > MAX_STEPS) max_steps = MAX_STEPS;
+  if (repeat_times > REPEAT_TIMES) repeat_times = REPEAT_TIMES;
 
   memset(exp, 0, sizeof(FluxExperiment_t));
   exp->Ts = Ts;
   exp->sample_capacity = sample_capacity;
-  exp->capture_cycles = capture_cycles;
-  exp->select_cycles = select_cycles;
   exp->max_steps = max_steps;
   exp->start_I = start_I;
   exp->final_I = final_I;
   exp->step_dir = (step_dir >= 0) ? 1 : -1;
   exp->inject_amp = inject_amp;
   exp->Running = false;
-  exp->inj = inj;
   exp->pos = 0;
   exp->edge_count = 0;
   exp->step_index = 0;
   exp->state = WAIT;
-  exp->last_Vd = inj ? inj->Vd : 0.0f;
-  exp->last_Vq = inj ? inj->Vq : 0.0f;
+  exp->last_Vd = exp->inj ? exp->inj->Vd : 0.0f;
+  exp->last_Vq = exp->inj ? exp->inj->Vq : 0.0f;
 }
 
 void Experiment_Step(FluxExperiment_t* exp, float Id, float Iq, float* Ud, float* Uq)
@@ -119,7 +114,6 @@ void Experiment_Step(FluxExperiment_t* exp, float Id, float Iq, float* Ud, float
           exp->inj->Ud_amp = 0.0F;
           exp->inj->Uq_amp = 0.0F;
           exp->inj->Imax = 0.0F;
-          exp->inj->Count = 0;
           exp->inj->State = false;
         }
 
@@ -135,12 +129,10 @@ void Experiment_Step(FluxExperiment_t* exp, float Id, float Iq, float* Ud, float
 
     case INJECT_COLLECT:
     {
-      float Ud_out = 0.0f, Uq_out = 0.0f;
-
       if (exp->inj->State == false)
       {
-        Ud_out = 0.0F;
-        Uq_out = 0.0F;
+        exp->inj->Vd = 0.0F;
+        exp->inj->Vq = 0.0F;
         *Ud = 0.0F;
         *Uq = 0.0F;
         break;
@@ -159,7 +151,7 @@ void Experiment_Step(FluxExperiment_t* exp, float Id, float Iq, float* Ud, float
           {
             exp->inj->inj_state_d = +1;
           }
-          Ud_out = (exp->inj->inj_state_d >= 0) ? exp->inj->Ud_amp : -exp->inj->Ud_amp;
+          exp->inj->Vd = (exp->inj->inj_state_d >= 0) ? exp->inj->Ud_amp : -exp->inj->Ud_amp;
         }
 
         // --- 方波注入 Q 轴 ---
@@ -173,38 +165,49 @@ void Experiment_Step(FluxExperiment_t* exp, float Id, float Iq, float* Ud, float
           {
             exp->inj->inj_state_q = +1;
           }
-          Uq_out = (exp->inj->inj_state_q >= 0) ? exp->inj->Uq_amp : -exp->inj->Uq_amp;
+          exp->inj->Vq = (exp->inj->inj_state_q >= 0) ? exp->inj->Uq_amp : -exp->inj->Uq_amp;
         }
 
         // 本次输出电压
-        *Ud = Ud_out;
-        *Uq = Uq_out;
+        *Ud = exp->inj->Vd;
+        *Uq = exp->inj->Vq;
       }
 
-      // --- 边沿检测 ---
+      bool edge_detected = false;
+
       if (exp->inj->mode == INJECT_D || exp->inj->mode == INJECT_DQ)
       {
-        if (Ud_out == -exp->last_Vd)
-        {
-          if (exp->edge_count < (exp->capture_cycles + 3))
-          {
-            exp->edge_idx[exp->edge_count++] = exp->pos;
-          }
-        }
+        if (*Ud == -exp->last_Vd) edge_detected = true;
       }
       if (exp->inj->mode == INJECT_Q)
       {
-        if (Uq_out == -exp->last_Vq)
+        if (*Uq == -exp->last_Vq) edge_detected = true;
+      }
+
+      if (edge_detected)
+      {
+        exp->edge_count++;
+
+        // 第一次有效边沿，记录起点
+        if (exp->edge_count == exp->wait_edges + 1)
         {
-          if (exp->edge_count < (exp->capture_cycles + 3))
-          {
-            exp->edge_idx[exp->edge_count++] = exp->pos;
-          }
+          exp->pos = 0;  // buffer 从 0 开始存
+          exp->edge_idx[0] = 0;
+        }
+
+        // 收到 wait_edges + 3 个边沿时，说明完整周期结束
+        if (exp->edge_count == exp->wait_edges + 3)
+        {
+          exp->edge_idx[1] = exp->pos;
+          exp->state = PROCESS;
+          exp->inj->State = false;
+          *Ud = 0.0f;
+          *Uq = 0.0f;
         }
       }
 
-      // --- 存 buffer ---
-      if (exp->edge_count != 0)
+      // --- 存 buffer（仅在等待期结束后才写入） ---
+      if (exp->edge_count >= exp->wait_edges + 1)
       {
         if (exp->pos < exp->sample_capacity)
         {
@@ -214,7 +217,6 @@ void Experiment_Step(FluxExperiment_t* exp, float Id, float Iq, float* Ud, float
           exp->Uq_buf[idx] = exp->last_Vq;
           exp->Iq_buf[idx] = Iq;
 
-          // 积分（前向 Euler）
           if (idx == 0)
           {
             exp->psi_d_buf[idx] = 0.0f;
@@ -228,7 +230,6 @@ void Experiment_Step(FluxExperiment_t* exp, float Id, float Iq, float* Ud, float
             exp->psi_d_buf[idx] = exp->psi_d_buf[prev] + exp->Ts * integrand_d;
             exp->psi_q_buf[idx] = exp->psi_q_buf[prev] + exp->Ts * integrand_q;
           }
-
           exp->pos++;
         }
         else
@@ -236,108 +237,113 @@ void Experiment_Step(FluxExperiment_t* exp, float Id, float Iq, float* Ud, float
           // buffer 满，进入处理
           exp->state = PROCESS;
           exp->inj->State = false;
-          Ud_out = 0.0F;
-          Uq_out = 0.0F;
+          exp->inj->Vd = 0.0F;
+          exp->inj->Vq = 0.0F;
           *Ud = 0.0F;
           *Uq = 0.0F;
         }
       }
-
-      // --- 检查是否捕获到足够的周期 ---
-      if (exp->edge_count >= (exp->capture_cycles + 2))
-      {
-        exp->state = PROCESS;
-        exp->inj->State = false;
-        *Ud = 0.0F;
-        *Uq = 0.0F;
-      }
-      exp->last_Vd = Ud_out;  // 最后更新
-      exp->last_Vq = Uq_out;
+      exp->last_Vd = *Ud;
+      exp->last_Vq = *Uq;
       break;
     }
 
     case PROCESS:
     {
-      // 处理当前 step 的数据：要求至少 capture_cycles 个周期（否则视为失败）
-      int pairs = exp->edge_count - 2;
-      if (pairs < exp->select_cycles)
+      // ---- 用 INJECT_COLLECT 写好的两个索引表示一个周期 ----
+      // edge_idx[0] = 起点（写入 buffer 时的 0）
+      // edge_idx[1] = 结束位置（写入时 pos）
+      if (exp->edge_count < 2)
       {
-        // 数据不足：直接结束当前 step（可选择重做或标记失败）
-        // 这里我们把该步标为使用尽可能多的周期（若 >=10），否则跳过保存
-        if (pairs < 1)
-        {
-          // 没有周期，直接结束
-          exp->state = NEXT_I;
-          break;
-        }
+        // 不应发生（INJECT_COLLECT 已经保证 >= wait_edges+3 才进入 PROCESS）
+        exp->state = NEXT_I;
+        break;
       }
 
-      // 容许的可用周期数 = min(pairs, capture_cycles)
-      int cycles_avail = pairs;
-      if (cycles_avail > exp->capture_cycles) cycles_avail = exp->capture_cycles;
+      int s_idx = exp->edge_idx[0];
+      int e_idx = exp->edge_idx[1];
 
-      // 选择中间 select_cycles 周期（如果 cycles_avail < select_cycles，则使用全部）
-      int use_cycles = exp->select_cycles;
-      if (cycles_avail < use_cycles) use_cycles = cycles_avail;
-
-      int start_cycle = 0;
-      if (cycles_avail > use_cycles)
+      // 检查样本数是否足够
+      if (e_idx <= s_idx + 1)
       {
-        // center the selection
-        start_cycle = (cycles_avail - use_cycles) / 2;
+        // 本次周期数据不足，重做一次采集（不计入 repeat_count）
+        exp->pos = 0;
+        exp->edge_count = 0;
+        // 重新开启注入以重试
+        if (exp->inj) exp->inj->State = true;
+        exp->last_Vd = 0.0f;
+        exp->last_Vq = 0.0f;
+        exp->state = INJECT_COLLECT;
+        break;
+      }
+
+      // 选择要用的 psi 缓冲区：Q 注入用 psi_q，否则使用 psi_d（如果需要同时计算可再扩展）
+      float* psi_buf = (exp->inj && exp->inj->mode == INJECT_Q) ? exp->psi_q_buf : exp->psi_d_buf;
+
+      // ---- 计算去均值后的最大 psi ----
+      float sum = 0.0f;
+      int cnt = 0;
+      for (int i = s_idx; i < e_idx; ++i)
+      {
+        sum += psi_buf[i];
+        cnt++;
+      }
+      float mean = (cnt > 0) ? (sum / (float)cnt) : 0.0f;
+
+      float max_psi = -1e30f;
+      for (int i = s_idx; i < e_idx; ++i)
+      {
+        float psi_c = psi_buf[i] - mean;
+        if (psi_c > max_psi) max_psi = psi_c;
+      }
+
+      // 如果数据有效，累积；否则重试（不计入）
+      if (max_psi > -1e29f)
+      {
+        exp->sum_max_psi += max_psi;
+        exp->repeat_count++;
       }
       else
       {
-        start_cycle = 0;
+        // 无效数据，直接重试
+        exp->pos = 0;
+        exp->edge_count = 0;
+        if (exp->inj) exp->inj->State = true;
+        exp->last_Vd = exp->inj ? exp->inj->Ud_amp : 0.0f;
+        exp->last_Vq = exp->inj ? exp->inj->Uq_amp : 0.0f;
+        exp->state = INJECT_COLLECT;
+        break;
       }
 
-      // 计算每个所选周期去均值后的 psi 最大值（以 d 轴为例）
-      float sum_max_psi = 0.0f;
-      int counted = 0;
-      for (int c = 0; c < use_cycles; ++c)
+      // ---- 判断是否已经达到重复次数 ----
+      if (exp->repeat_count < exp->repeat_times)
       {
-        int cyc_idx = start_cycle + c;
-        int s_idx = exp->edge_idx[cyc_idx];
-        int e_idx = exp->edge_idx[cyc_idx + 2];  // edge + 1 为两个边沿一个周期, +2 3边沿一周期
-        if (e_idx <= s_idx + 1) continue;
-        // 计算均值
-        float s = 0.0f;
-        int cnt = 0;
-        for (int i = s_idx; i < e_idx; ++i)
-        {
-          s += exp->psi_d_buf[i];
-          cnt++;
-        }
-        if (cnt == 0) continue;
-        float mean = s / (float)cnt;
-        // 找到该周期内去均值后的最大 psi
-        float max_psi = -1e30f;
-        for (int i = s_idx; i < e_idx; ++i)
-        {
-          float psi_c = exp->psi_d_buf[i] - mean;
-          if (psi_c > max_psi) max_psi = psi_c;
-        }
-        if (max_psi > -1e29f)
-        {
-          sum_max_psi += max_psi;
-          counted++;
-        }
+        // 还需重复：为下一次注入做准备
+        exp->pos = 0;
+        exp->edge_count = 0;
+        if (exp->inj) exp->inj->State = true;  // 重新开启注入
+        exp->state = INJECT_COLLECT;
       }
-
-      if (counted > 0)
+      else
       {
+        // 达到重复次数：计算平均并保存结果
+        float avg = exp->sum_max_psi / (float)exp->repeat_times;
+
         exp->results[exp->step_index].Imax_value = exp->inj ? exp->inj->Imax : 0.0f;
-        exp->results[exp->step_index].avg_max_psi = sum_max_psi / (float)counted;
-        exp->results[exp->step_index].cycles_used = counted;
+        exp->results[exp->step_index].avg_max_psi = avg;
+        exp->results[exp->step_index].cycles_used = exp->repeat_times;
+        // 若你同时使用 save_result，也可以调用：
+        save_result(exp->inj ? exp->inj->Imax : 0.0f, avg, exp->repeat_times);
+
         exp->step_index++;
-        save_result(exp->inj ? exp->inj->Imax : 0.0f, sum_max_psi / (float)counted, counted);
-      }
-      else
-      {
-        // 本步没计算出有效最大值（可记录失败），这里忽略保存
+
+        // 清零累积器，为下一 Imax 做准备（NEXT_I 也会重置 pos/edge_count）
+        exp->sum_max_psi = 0.0f;
+        exp->repeat_count = 0;
+
+        exp->state = NEXT_I;
       }
 
-      exp->state = NEXT_I;
       break;
     }
 
@@ -395,7 +401,7 @@ void Experiment_Step(FluxExperiment_t* exp, float Id, float Iq, float* Ud, float
     case LLS:
     {
       LLS_Result_t lls = compute_lls(exp, exp->step_index + 1, 5);  // S=5
-      
+
       g_results_ad0 = lls.ad0;
       g_results_add = lls.add;
       exp->state = DONE;
