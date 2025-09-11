@@ -19,10 +19,6 @@
 
 /* ------------------------------------------------------------------ */
 
-typedef struct
-{
-  float current;
-} MTPA_t;
 
 typedef struct
 {
@@ -30,6 +26,14 @@ typedef struct
   float avg_max_psi;  // 选取的 N=SELECT_CYCLES 周期中每周期最大 psi 的平均值
   int cycles_used;    // SELECT_CYCLES (通常)
 } ImaxResult_t;
+
+typedef struct {
+    float ad0;
+    float add;
+    float aq0;
+    float aqq;
+    float adq;
+} LLS_Result_t;
 
 /* 状态机状态 */
 typedef enum
@@ -39,6 +43,7 @@ typedef enum
   INJECT_COLLECT,  // 注入并收集样本
   PROCESS,         // 处理本步数据
   NEXT_I,          // 切换到下一个 Imax
+  LLS,
   DONE
 } ExpState_e;
 

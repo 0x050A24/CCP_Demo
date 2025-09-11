@@ -17,12 +17,14 @@
 
 /* Estimate_Rs 与 SquareWaveGenerater 原型（你已有的实现） */
 static inline bool Estimate_Rs(float Current, float* Voltage_out, float* Rs);
+static LLS_Result_t compute_lls(FluxExperiment_t* exp, int N, int S);
 
 /* 结果结构：每个 Imax 只保存最终的 avg_max_psi（和 Imax 值） */
 
-// 用 volatile 保证编译器不会优化掉，A2L 能映射到这些数组
 volatile float g_results_Imax[MAX_STEPS];
 volatile float g_results_avgmax[MAX_STEPS];
+volatile float g_results_ad0;
+volatile float g_results_add;
 volatile uint32_t g_results_cycles[MAX_STEPS];
 
 // 当前步索引
@@ -371,7 +373,7 @@ void Experiment_Step(FluxExperiment_t* exp, float Id, float Iq, float* Ud, float
         if (finished || exp->step_index >= exp->max_steps)
         {
           exp->inj->State = false;
-          exp->state = DONE;
+          exp->state = LLS;
         }
         else
         {
@@ -385,46 +387,28 @@ void Experiment_Step(FluxExperiment_t* exp, float Id, float Iq, float* Ud, float
       }
       else
       {
-        exp->state = DONE;
+        exp->state = LLS;
       }
       break;
     }
 
+    case LLS:
+    {
+      LLS_Result_t lls = compute_lls(exp, exp->step_index + 1, 5);  // S=5
+      
+      g_results_ad0 = lls.ad0;
+      g_results_add = lls.add;
+      exp->state = DONE;
+      break;
+    }
     case DONE:
-      // nothing to do
+      *Ud = 0.0f;
+      *Uq = 0.0f;
+      exp->Running = false;
+
       break;
   }
 }
-
-
-// /* ----------------- 使用说明（示例流程） -----------------
-// 1) 在系统初始化：
-//     VoltageInjector_t inj = {0};
-//     FluxExperiment_t exp;
-//     Experiment_Init(&exp, &inj, Ts, SAMPLE_CAPACITY, CAPTURE_CYCLES, SELECT_CYCLES, MAX_STEPS,
-//                     start_I, final_I, -1 /* step_dir -1 为从 start 向 min 递减 */, inject_amp,
-//                     true /*use inj for Rs?*/);
-
-// 2) 启动实验：
-//     Experiment_Start(&exp);
-
-// 3) 在每次采样周期（比如在 PWM 中断或定时器中）：
-//     // 先调用估 Rs / 注入函数
-//     // a) 如果你希望 Estimate_Rs 的 Voltage_out 直接通过 inj 发到电机，需要在 EST_RS 阶段让
-//     SquareWaveGenerater 输出（已由 code 做部分处理）
-//     // b) 在注入阶段，调用 SquareWaveGenerater 生成 Ud/Uq
-//     float Ud, Uq;
-//     SquareWaveGenerater(&inj, Id_meas, Iq_meas, &Ud, &Uq);
-//     // 然后把测得的 Id/Iq 与 Ud/Uq 传入 Experiment_Step
-//     Experiment_Step(&exp, Ud, Id_meas, Uq, Iq_meas, inj.Count);
-
-// 4) 主循环或外部任务可轮询 Experiment_GetResultCount() 当状态为 DONE 时读取全部结果：
-//     int n = Experiment_GetResultCount(&exp);
-//     for (i=0;i<n;i++){
-//         const ImaxResult_t *r = Experiment_GetResult(&exp,i);
-//         // r->Imax_value, r->avg_max_psi
-//     }
-// ----------------------------------------------------------------- */
 
 /* 注意与扩展
  - 当前实现以 d 轴为例计算 psi（psi_d_buf）。若要支持 q 轴（或同时支持），把处理段改成分别对
@@ -521,4 +505,44 @@ bool Estimate_Rs(float Current, float* Voltage_out, float* Rs)
     }
   }
   return done_flag;
+}
+
+LLS_Result_t compute_lls(FluxExperiment_t* exp, int N, int S)
+{
+  float sum_x2 = 0.0f;
+  float sum_xp = 0.0f;
+  float sum_xp2 = 0.0f;
+  float sum_yx = 0.0f;
+  float sum_yxp = 0.0f;
+
+  for (int i = 0; i < N; i++)
+  {
+    float psi = exp->results[i].avg_max_psi;
+    float I = exp->results[i].Imax_value;
+
+    // 幂次计算：psi^(S+1)
+    float xp = 1.0f;
+    for (int k = 0; k < S + 1; k++)
+    {
+      xp *= psi;
+    }
+
+    sum_x2 += psi * psi;
+    sum_xp += psi * xp;
+    sum_xp2 += xp * xp;
+
+    sum_yx += psi * I;
+    sum_yxp += xp * I;
+  }
+
+  float det = sum_x2 * sum_xp2 - sum_xp * sum_xp;
+  LLS_Result_t res = {0};
+
+  if (fabsf(det) > 1e-12f)
+  {
+    res.ad0 = (sum_xp2 * sum_yx - sum_xp * sum_yxp) / det;
+    res.add = (sum_x2 * sum_yxp - sum_xp * sum_yx) / det;
+  }
+
+  return res;
 }
