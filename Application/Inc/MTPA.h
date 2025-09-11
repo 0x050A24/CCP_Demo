@@ -14,7 +14,7 @@
 /* --------- 参数区（按目标 MCU 调整这些数值以节省 RAM） --------- */
 #define SAMPLE_CAPACITY 512  // 缓冲区大小（samples），可改为 1024 / 4096
 #define MAX_STEPS 20         // 最多 20 个 Imax 步
-#define REPEAT_TIMES 3      // 每个 Imax 重复 3 次
+#define REPEAT_TIMES 3       // 每个 Imax 重复 3 次
 
 /* ------------------------------------------------------------------ */
 
@@ -39,10 +39,11 @@ typedef enum
 {
   WAIT = 0,
   EST_RS,          // 估定 Rs
-  INJECT_COLLECT,  // 注入并收集样本
   PROCESS,         // 处理本步数据
+  INJECT_COLLECT,  // 注入并收集样本
   NEXT_I,          // 切换到下一个 Imax
   LLS,
+  PENDING,
   DONE
 } ExpState_e;
 
@@ -109,15 +110,14 @@ typedef struct
 
   // runtime
   ExpState_e state;
-  VoltageInjector_t* inj;  // 指向外部注入器
-  float inject_amp;        // 注入幅值（外部传入，Ud_amp / Uq_amp）
-  bool Running;            // 是否正在运行（非 DONE）
+  VoltageInjector_t inj;  // 指向外部注入器
+  float inject_amp;       // 注入幅值（外部传入，Ud_amp / Uq_amp）
+  bool Running;           // 是否正在运行（非 DONE）
 } FluxExperiment_t;
 
 void Experiment_Step(FluxExperiment_t* exp, float Id, float Iq, float* Ud, float* Uq);
-void Experiment_Init(FluxExperiment_t* exp, float Ts, int sample_capacity,
-                     int repeat_times, int max_steps, int start_I, int final_I, int step_dir,
-                     float inject_amp);
+void Experiment_Init(FluxExperiment_t* exp, float Ts, int sample_capacity, int repeat_times,
+                     int max_steps, int start_I, int final_I, int step_dir, float inject_amp);
 // void MTPA_Init(void);
 // void MTPA_SetCurrent(float current);
 // float MTPA_GetCurrent(void);
