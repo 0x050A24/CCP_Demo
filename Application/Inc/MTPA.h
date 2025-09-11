@@ -12,10 +12,11 @@
 #define HOLD_CYCLES 15000    // 每步保持周期数
 
 /* --------- 参数区（按目标 MCU 调整这些数值以节省 RAM） --------- */
-#define SAMPLE_CAPACITY 1024  // 缓冲区大小（samples），可改为 1024 / 4096
+#define SAMPLE_CAPACITY 512  // 缓冲区大小（samples），可改为 1024 / 4096
 #define MAX_STEPS 20         // 最多 20 个 Imax 步
-#define CAPTURE_CYCLES 20    // 每步采集的周期数（尽量 >= 10）
+#define CAPTURE_CYCLES 20    // 每步采集的最大周期数（尽量 >= 10）,选取1以节省内存。一个周期约400点
 #define SELECT_CYCLES 10     // 从 CAPTURE_CYCLES 中选取的中心周期数量（取中间10）
+
 /* ------------------------------------------------------------------ */
 
 typedef struct

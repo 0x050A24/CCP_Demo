@@ -184,7 +184,7 @@ void Experiment_Step(FluxExperiment_t* exp, float Id, float Iq, float* Ud, float
       {
         if (Ud_out == -exp->last_Vd)
         {
-          if (exp->edge_count < (exp->capture_cycles + 2))
+          if (exp->edge_count < (exp->capture_cycles + 3))
           {
             exp->edge_idx[exp->edge_count++] = exp->pos;
           }
@@ -194,7 +194,7 @@ void Experiment_Step(FluxExperiment_t* exp, float Id, float Iq, float* Ud, float
       {
         if (Uq_out == -exp->last_Vq)
         {
-          if (exp->edge_count < (exp->capture_cycles + 2))
+          if (exp->edge_count < (exp->capture_cycles + 3))
           {
             exp->edge_idx[exp->edge_count++] = exp->pos;
           }
@@ -242,7 +242,7 @@ void Experiment_Step(FluxExperiment_t* exp, float Id, float Iq, float* Ud, float
       }
 
       // --- 检查是否捕获到足够的周期 ---
-      if (exp->edge_count >= (exp->capture_cycles + 1))
+      if (exp->edge_count >= (exp->capture_cycles + 2))
       {
         exp->state = PROCESS;
         exp->inj->State = false;
@@ -257,7 +257,7 @@ void Experiment_Step(FluxExperiment_t* exp, float Id, float Iq, float* Ud, float
     case PROCESS:
     {
       // 处理当前 step 的数据：要求至少 capture_cycles 个周期（否则视为失败）
-      int pairs = exp->edge_count - 1;
+      int pairs = exp->edge_count - 2;
       if (pairs < exp->select_cycles)
       {
         // 数据不足：直接结束当前 step（可选择重做或标记失败）
@@ -296,7 +296,7 @@ void Experiment_Step(FluxExperiment_t* exp, float Id, float Iq, float* Ud, float
       {
         int cyc_idx = start_cycle + c;
         int s_idx = exp->edge_idx[cyc_idx];
-        int e_idx = exp->edge_idx[cyc_idx + 1];
+        int e_idx = exp->edge_idx[cyc_idx + 2];  // edge + 1 为两个边沿一个周期, +2 3边沿一周期
         if (e_idx <= s_idx + 1) continue;
         // 计算均值
         float s = 0.0f;
@@ -396,18 +396,6 @@ void Experiment_Step(FluxExperiment_t* exp, float Id, float Iq, float* Ud, float
   }
 }
 
-/* ---------- 读取结果数与单步结果 ---------- */
-int Experiment_GetResultCount(FluxExperiment_t* exp)
-{
-  if (!exp) return 0;
-  return exp->step_index;
-}
-const ImaxResult_t* Experiment_GetResult(FluxExperiment_t* exp, int idx)
-{
-  if (!exp) return NULL;
-  if (idx < 0 || idx >= exp->step_index) return NULL;
-  return &exp->results[idx];
-}
 
 // /* ----------------- 使用说明（示例流程） -----------------
 // 1) 在系统初始化：
