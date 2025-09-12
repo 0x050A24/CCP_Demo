@@ -248,6 +248,7 @@ void Experiment_Step(FluxExperiment_t* exp, float Id, float Iq, float* Ud, float
       // ---- 用 INJECT_COLLECT 写好的两个索引表示一个周期 ----
       // edge_idx[0] = 起点（写入 buffer 时的 0）
       // edge_idx[1] = 结束位置（写入时 pos）
+      exp->inj.State = false;
       if (exp->edge_count < 2)
       {
         // 不应发生（INJECT_COLLECT 已经保证 >= wait_edges+3 才进入 PROCESS）
@@ -286,16 +287,31 @@ void Experiment_Step(FluxExperiment_t* exp, float Id, float Iq, float* Ud, float
       float mean = (cnt > 0) ? (sum / (float)cnt) : 0.0f;
 
       float max_psi = -1e30f;
+      float I_at_max = 0.0f;
+
       for (int i = s_idx; i < e_idx; ++i)
       {
         float psi_c = psi_buf[i] - mean;
-        if (psi_c > max_psi) max_psi = psi_c;
+        if (psi_c > max_psi)
+        {
+          max_psi = psi_c;
+          // 取磁链峰值点对应的电流
+          if (exp->inj.mode == INJECT_D)
+          {
+            I_at_max = exp->Id_buf[i];
+          }
+          else if (exp->inj.mode == INJECT_Q)
+          {
+            I_at_max = exp->Iq_buf[i];
+          }
+        }
       }
 
       // 如果数据有效，累积；否则重试（不计入）
       if (max_psi > -1e29f)
       {
         exp->sum_max_psi += max_psi;
+        exp->sum_max_I += I_at_max;  // 新增
         exp->repeat_count++;
       }
       else
@@ -320,18 +336,20 @@ void Experiment_Step(FluxExperiment_t* exp, float Id, float Iq, float* Ud, float
       else
       {
         // 达到重复次数：计算平均并保存结果
-        float avg = exp->sum_max_psi / (float)exp->repeat_times;
+        float avg_psi = exp->sum_max_psi / (float)exp->repeat_times;
+        float avg_I = exp->sum_max_I / (float)exp->repeat_times;
 
-        exp->results[exp->step_index].Imax_value = exp->inj.Imax;
-        exp->results[exp->step_index].avg_max_psi = avg;
+        exp->results[exp->step_index].Imax_value = avg_I;     // 现在是峰值点对应的电流
+        exp->results[exp->step_index].avg_max_psi = avg_psi;  // 峰值点磁链
         exp->results[exp->step_index].cycles_used = exp->repeat_times;
         // 若你同时使用 save_result，也可以调用：
-        save_result(exp->inj.Imax, avg, exp->repeat_times);
+        save_result(avg_I, avg_psi, exp->repeat_times);
 
         exp->step_index++;
 
         // 清零累积器，为下一 Imax 做准备（NEXT_I 也会重置 pos/edge_count）
-        exp->sum_max_psi = 0.0f;
+        exp->sum_max_psi = 0.0F;
+        exp->sum_max_I = 0.0F;
         exp->repeat_count = 0;
 
         exp->state = NEXT_I;
@@ -377,6 +395,7 @@ void Experiment_Step(FluxExperiment_t* exp, float Id, float Iq, float* Ud, float
         exp->pos = 0;
         exp->edge_count = 0;
         exp->state = INJECT_COLLECT;
+        // exp->inj.State = true;
       }
       break;
     }

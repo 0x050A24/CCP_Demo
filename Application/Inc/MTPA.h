@@ -80,6 +80,7 @@ typedef struct
   int repeat_times;   // 每个 Imax 要重复多少次
   int repeat_count;   // 当前已经完成的次数
   float sum_max_psi;  // 累积的 max_psi
+  float sum_max_I;     // 累积的 max_I
 
   int wait_edges;  // 开始采集前需要等待的边沿数
 
