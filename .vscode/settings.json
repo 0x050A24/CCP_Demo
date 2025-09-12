@@ -84,6 +84,8 @@
         "cstring": "c",
         "variant": "c",
         "cstdlib": "c",
-        "string.h": "c"
+        "string.h": "c",
+        "stdint.h": "c",
+        "stdatomic.h": "c"
     },
 }

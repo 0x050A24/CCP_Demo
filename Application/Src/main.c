@@ -10,6 +10,7 @@
 #include "tim.h"
 #include "usart.h"
 #include "MTPA.h"
+
 volatile uint32_t DWT_Count = 0;
 
 bool pin = false;
@@ -51,10 +52,16 @@ int main(void)
   float psi_2 = 0.3;   // 第二个磁链幅值 (Wb)
   float psi_3 = 0.36;  // 第三个磁链幅值 (Wb)
   float psi_mid = 0.4;  // 中间磁链幅值 (Wb)
-  float psi_4 = 0.6;   // 第四个磁链幅值 (Wb)
-  float psi_5 = 0.7;   // 第五个磁链幅值 (Wb)
+  float psi_4 = 0.45;   // 第四个磁链幅值 (Wb)
+  float psi_5 = 0.5;   // 第五个磁链幅值 (Wb)
+  float psi_6 = 0.55;  // 第五个磁链幅值 (Wb)
+  float psi_7 = 0.6; 
+  float psi_8 = 0.68; 
+  float psi_9 = 0.74; 
+
   float psi_max = 0.84; // 最大磁链幅值 (Wb  );
-   MTPA_init( psi_min, psi_1, psi_2, psi_3,  psi_mid, psi_4, psi_5,  psi_max);//
+  
+  MTPA_init( psi_min, psi_1, psi_2, psi_3,  psi_mid, psi_4, psi_5,psi_6 ,psi_7 ,psi_8 ,psi_9, psi_max);//
   while (1)
   {
     COM_CANProtocol();
@@ -62,7 +69,7 @@ int main(void)
     // COM_DAQProtocol(systick_ms); Use CCP DAQ may cause PiSnoop display offline
     Peripheral_TemperatureProtect();
     Peripheral_GateState();
-
+    MTPA_service_tick();
     pin = gpio_input_bit_get(GPIOE, GPIO_PIN_15);
     // DWT_Count = DWT->CYCCNT; // 读取DWT计数器
   }

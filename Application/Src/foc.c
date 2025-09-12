@@ -102,20 +102,26 @@ void FOC_Main(void)
 
         PID_Controller(RampGenerator(&Speed_Ramp), FOC.Speed, &Speed_PID);
       }
-
+      
       FOC.Iq_ref = Speed_PID.output;          // Iq_ref = Speed_PID.output
-     //FOC.Iq_ref =1.2;//test
-     // FOC.Id_ref = ((MTPA.A * FOC.Iq_ref + MTPA.B) * FOC.Iq_ref + MTPA.C) * FOC.Iq_ref + MTPA.D;
-      if (FOC.Iq_ref>=0)
+
+
+     /*FOC.Iq_ref =IQtest;//test
+     IQtest+=0.0005;
+     if(IQtest>=IQtestMax){IQtest=IQtestMax;}*/
+    //FOC.Id_ref = ((MTPA.A * FOC.Iq_ref + MTPA.B) * FOC.Iq_ref + MTPA.C) * FOC.Iq_ref + MTPA.D;
+      float iq_meas = FOC.Iq_ref ;
+     if (FOC.Iq_ref>=0)
         {
-      MTPA_update(FOC.Iq_ref);
-      FOC.Id_ref = Id_mtpa;
+        MTPA_update_ISR(iq_meas);
+        FOC.Id_ref = Id_mtpa;
         }
         else
         {
-      MTPA_update(-FOC.Iq_ref);
-      FOC.Id_ref = -Id_mtpa;
+          MTPA_update_ISR(-iq_meas);
+          FOC.Id_ref = -Id_mtpa;
         }
+      // FOC.Id_ref = IQtest;
       PID_Controller(FOC.Id_ref, FOC.Id, &Id_PID);
       PID_Controller(FOC.Iq_ref, FOC.Iq, &Iq_PID);
 
@@ -555,3 +561,6 @@ static inline void SVPWM_Generate(float Ualpha, float Ubeta, float inv_Vdc, FOC_
   foc->Tcm2 = Tcm2;
   foc->Tcm3 = Tcm3;
 }
+
+
+

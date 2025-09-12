@@ -146,9 +146,13 @@ void USBD_LP_CAN0_RX0_IRQHandler(void)
   can_message_receive(CAN0, CAN_FIFO0, &rx_msg);
   CAN_Buffer_Put(&rx_msg);
 }
-
+uint32_t systick_cnt=0;
+float IQtest=0;
+float IQtestMax=13.0;
+uint32_t systick_cnt1=0;
 void ADC0_1_IRQHandler(void)
 {
+  uint32_t cnt_start = (TIMER_CNT(TIMER1));
   if (adc_interrupt_flag_get(ADC0, ADC_INT_FLAG_EOIC))
   {
     adc_interrupt_flag_clear(ADC0, ADC_INT_FLAG_EOIC);
@@ -218,6 +222,17 @@ void ADC0_1_IRQHandler(void)
 
     Peripheral_SetPWMChangePoint();
   }
+  uint32_t cnt_end = (TIMER_CNT(TIMER1));
+   
+  if (cnt_end > cnt_start) 
+  {
+    systick_cnt1=cnt_end - cnt_start;
+    if(systick_cnt1>systick_cnt)
+    {
+      systick_cnt=systick_cnt1;
+    }
+  }
+  
 }
 
 void EXTI5_9_IRQHandler(void)
