@@ -16,7 +16,11 @@
 #define MAX_STEPS 20         // 最多 20 个 Imax 步
 #define REPEAT_TIMES 3       // 每个 Imax 重复 3 次
 
-/* ------------------------------------------------------------------ */
+/* ----------公式系数------------------ */
+#define S 5
+#define T 1
+#define U 1
+#define V 0
 
 typedef struct
 {
@@ -27,11 +31,26 @@ typedef struct
 
 typedef struct
 {
+  float J;
+  float R2;
+} Residual_t;
+
+typedef struct
+{
+  float J[2];
+  float R2[2];
+} ResidualDQ_t;
+
+typedef struct
+{
   float ad0;
   float add;
   float aq0;
   float aqq;
   float adq;
+  Residual_t D;
+  Residual_t Q;
+  ResidualDQ_t DQ;
 } LLS_Result_t;
 
 /* 状态机状态 */
@@ -80,7 +99,7 @@ typedef struct
   int repeat_times;   // 每个 Imax 要重复多少次
   int repeat_count;   // 当前已经完成的次数
   float sum_max_psi;  // 累积的 max_psi
-  float sum_max_I;     // 累积的 max_I
+  float sum_max_I;    // 累积的 max_I
 
   int wait_edges;  // 开始采集前需要等待的边沿数
 
@@ -97,6 +116,22 @@ typedef struct
   float psi_d_buf[SAMPLE_CAPACITY];
   float psi_q_buf[SAMPLE_CAPACITY];
 
+  // 交叉耦合累加器（用于最终求解 adq）
+  float cq_Sxx;  // sum of x^2 (x1^2 + x2^2 over all used samples)
+  float cq_Sxy;  // sum of x*y (x1*id_res + x2*iq_res)
+  uint8_t cq_N;  // count of used sample-rows (2 per k if both rows used)
+
+  // 用于计算 J / R^2
+  float sum_id;   // sum of id (for mean)
+  float sum_id2;  // sum of id^2
+  float sum_iq;   // sum of iq
+  float sum_iq2;  // sum of iq^2
+
+  float sum_eps_id2;  // sum of squared residuals id (Jd)
+  float sum_eps_iq2;  // sum of squared residuals iq (Jq)
+  uint16_t count_id;  // number of id samples included
+  uint16_t count_iq;  // number of iq samples included
+
   // fill pointers
   int pos;          // 当前写入位置
   int edge_idx[2];  // 切换点索引, 0: 起点, 1: 终点
@@ -107,6 +142,7 @@ typedef struct
 
   // results
   ImaxResult_t results[MAX_STEPS];
+  LLS_Result_t LLS;
   int step_index;  // 已完成的 step 数
 
   // runtime
