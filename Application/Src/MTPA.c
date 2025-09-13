@@ -6,33 +6,16 @@
 
 /* Estimate_Rs 与 SquareWaveGenerater 原型（你已有的实现） */
 static inline bool Estimate_Rs(float Current, float* Voltage_out, float* Rs);
+static void square_injection(FluxExperiment_t* exp, float Id, float Iq, float* Ud, float* Uq);
+static bool detect_edge(FluxExperiment_t* exp, float Ud, float Uq);
+static void collect_sample(FluxExperiment_t* exp, float Id, float Iq);
+static bool process_single_axis_cycle(FluxExperiment_t* exp, float* psi_buf, float* I_buf,
+                                      float* avg_I, float* avg_psi);
+static bool next_imax(FluxExperiment_t* exp);
 static LLS_Result_t Single_Axis_LLS(FluxExperiment_t* exp, int exponent);
 static void process_cycle_for_dq_adq(FluxExperiment_t* exp, int s);
 
 /* 结果结构：每个 Imax 只保存最终的 avg_max_psi（和 Imax 值） */
-
-volatile float g_results_Imax[MAX_STEPS];
-volatile float g_results_avgmax[MAX_STEPS];
-volatile float g_results_ad0;
-volatile float g_results_add;
-volatile float g_results_aq0;
-volatile float g_results_aqq;
-volatile uint32_t g_results_cycles[MAX_STEPS];
-
-// 当前步索引
-volatile uint32_t g_result_index = 0;
-
-// 保存一次结果
-void save_result(float Imax, float avgmax, uint32_t cycles)
-{
-  if (g_result_index < MAX_STEPS)
-  {
-    g_result_index++;
-    g_results_Imax[g_result_index] = Imax;
-    g_results_avgmax[g_result_index] = avgmax;
-    g_results_cycles[g_result_index] = cycles;
-  }
-}
 
 /* ---------- 初始化 ---------- */
 void Experiment_Init(FluxExperiment_t* exp, float Ts, int sample_capacity, int repeat_times,
@@ -121,427 +104,113 @@ void Experiment_Step(FluxExperiment_t* exp, float Id, float Iq, float* Ud, float
       break;
     }
 
-    case INJECT_COLLECT:
+    case D_AXIS_INJECT:
     {
-      if (exp->inj.State == false)
+      // 如果延时未激活，初始化注入
+      if (!exp->inj.State && !exp->timer_active)
       {
-        exp->inj.Vd = 0.0F;
-        exp->inj.Vq = 0.0F;
-        *Ud = exp->inj.Vd;
-        *Uq = exp->inj.Vq;
-        break;
+        exp->inj.State = true;
+        exp->inj.Ud_amp = exp->inject_amp;
+        exp->inj.Uq_amp = 0.0f;
+        if (exp->inj.Imax == 0.0f) next_imax(exp);  // 首次设置 Imax
       }
 
+      // 注入状态
       if (exp->inj.State)
       {
-        // --- 方波注入 D 轴 ---
-        if (exp->inj.mode == INJECT_D || exp->inj.mode == INJECT_DQ)
+        square_injection(exp, Id, Iq, Ud, Uq);
+        bool full_cycle = detect_edge(exp, *Ud, *Uq);
+
+        // 数据采样
+        if (exp->edge_count >= exp->wait_edges + 1)
         {
-          if (Id >= exp->inj.Imax)
+          collect_sample(exp, Id, Iq);
+          if (exp->pos >= exp->sample_capacity)
           {
-            exp->inj.inj_state_d = -1;
+            exp->inj.State = false;  // 停止注入
+            *Ud = 0.0f;
+            *Uq = 0.0f;
           }
-          else if (Id <= -exp->inj.Imax)
-          {
-            exp->inj.inj_state_d = +1;
-          }
-          exp->inj.Vd = (exp->inj.inj_state_d >= 0) ? exp->inj.Ud_amp : -exp->inj.Ud_amp;
         }
 
-        // --- 方波注入 Q 轴 ---
-        if (exp->inj.mode == INJECT_Q || exp->inj.mode == INJECT_DQ)
+        // 完整周期检测
+        if (full_cycle)
         {
-          if (Iq >= exp->inj.Imax)
-          {
-            exp->inj.inj_state_q = -1;
-          }
-          else if (Iq <= -exp->inj.Imax)
-          {
-            exp->inj.inj_state_q = +1;
-          }
-          exp->inj.Vq = (exp->inj.inj_state_q >= 0) ? exp->inj.Uq_amp : -exp->inj.Uq_amp;
-        }
-
-        // 本次输出电压
-        *Ud = exp->inj.Vd;
-        *Uq = exp->inj.Vq;
-      }
-
-      bool edge_detected = false;
-
-      if (exp->inj.mode == INJECT_D || exp->inj.mode == INJECT_DQ)
-      {
-        if (*Ud == -exp->last_Vd) edge_detected = true;
-      }
-      if (exp->inj.mode == INJECT_Q)
-      {
-        if (*Uq == -exp->last_Vq) edge_detected = true;
-      }
-
-      if (edge_detected)
-      {
-        exp->edge_count++;
-
-        // 第一次有效边沿，记录起点
-        if (exp->edge_count == exp->wait_edges + 1)
-        {
-          exp->pos = 0;  // buffer 从 0 开始存
-          exp->edge_idx[0] = 0;
-        }
-
-        // 收到 wait_edges + 3 个边沿时，说明完整周期结束
-        if (exp->edge_count == exp->wait_edges + 3)
-        {
-          exp->edge_idx[1] = exp->pos;
-          exp->state = PROCESS;
-          exp->inj.State = false;
-          exp->inj.Vd = 0.0F;
-          exp->inj.Vq = 0.0F;
-          *Ud = exp->inj.Vd;
-          *Uq = exp->inj.Vq;
+          exp->inj.State = false;  // 注入结束，进入数据处理
+          *Ud = 0.0f;
+          *Uq = 0.0f;
+          exp->state = D_AXIS_PROCESS;
         }
       }
 
-      // --- 存 buffer（仅在等待期结束后才写入） ---
-      if (exp->edge_count >= exp->wait_edges + 1)
-      {
-        if (exp->pos < exp->sample_capacity)
-        {
-          int idx = exp->pos;
-          exp->Ud_buf[idx] = exp->last_Vd;
-          exp->Id_buf[idx] = Id;
-          exp->Uq_buf[idx] = exp->last_Vq;
-          exp->Iq_buf[idx] = Iq;
+      break;
+    }
 
-          if (idx == 0)
+    case D_AXIS_PROCESS:
+    {
+      float avg_I = 0.0f, avg_psi = 0.0f;
+      bool cycle_done =
+          process_single_axis_cycle(exp, exp->psi_d_buf, exp->Id_buf, &avg_I, &avg_psi);
+
+      if (cycle_done)
+      {
+        // 保存结果
+        exp->results[exp->step_index].avg_max_psi = avg_psi;
+        exp->results[exp->step_index].Imax_value = avg_I;
+        exp->results[exp->step_index].cycles_used = exp->repeat_times;
+
+        // step_index 自增
+        exp->step_index++;
+
+        // 启动延时
+        exp->timer_active = true;
+        exp->wait_timer = 0.0f;
+
+        // 关闭注入
+        exp->inj.State = false;
+        *Ud = 0.0f;
+        *Uq = 0.0f;
+      }
+      else
+      {
+        // repeat 未完成 → 重试
+        exp->pos = 0;
+        exp->edge_count = 0;
+        exp->inj.State = true;
+        exp->state = D_AXIS_INJECT;
+      }
+
+      // 延时期间
+      if (exp->timer_active)
+      {
+        exp->wait_timer += exp->Ts;
+        *Ud = 0.0f;
+        *Uq = 0.0f;
+        exp->inj.State = false;
+
+        if (exp->wait_timer >= 1.0f)
+        {
+          exp->timer_active = false;
+          exp->wait_timer = 0.0f;
+
+          // 切换 Imax
+          if (!next_imax(exp))
           {
-            exp->psi_d_buf[idx] = 0.0f;
-            exp->psi_q_buf[idx] = 0.0f;
+            Single_Axis_LLS(exp, 5);
+            exp->state = DONE;
           }
           else
           {
-            int prev = idx - 1;
-            float integrand_d = (exp->last_Vd - exp->Rs_est * Id);
-            float integrand_q = (exp->last_Vq - exp->Rs_est * Iq);
-            exp->psi_d_buf[idx] = exp->psi_d_buf[prev] + exp->Ts * integrand_d;
-            exp->psi_q_buf[idx] = exp->psi_q_buf[prev] + exp->Ts * integrand_q;
-          }
-          exp->pos++;
-
-          if (exp->inj.mode == INJECT_DQ)
-          {
-            exp->repeat_count ++;
+            // 下一轮采样
+            exp->pos = 0;
+            exp->edge_count = 0;
+            exp->repeat_count = 0;
+            exp->inj.State = true;
+            exp->state = D_AXIS_INJECT;
           }
         }
-        else
-        {
-          // buffer 满，进入处理
-          exp->state = PROCESS;
-          exp->inj.State = false;
-          exp->inj.Vd = 0.0F;
-          exp->inj.Vq = 0.0F;
-          *Ud = exp->inj.Vd;
-          *Uq = exp->inj.Vq;
-        }
-      }
-      exp->last_Vd = *Ud;
-      exp->last_Vq = *Uq;
-      break;
-    }
-
-    case PROCESS:
-    {
-      // ---- 用 INJECT_COLLECT 写好的两个索引表示一个周期 ----
-      // edge_idx[0] = 起点（写入 buffer 时的 0）
-      // edge_idx[1] = 结束位置（写入时 pos）
-      exp->inj.State = false;
-      if (exp->edge_count < 2)
-      {
-        // 不应发生（INJECT_COLLECT 已经保证 >= wait_edges+3 才进入 PROCESS）
-        exp->state = NEXT_I;
-        break;
       }
 
-      int s_idx = exp->edge_idx[0];
-      int e_idx = exp->edge_idx[1];
-
-      // 检查样本数是否足够
-      if (e_idx <= s_idx + 1)
-      {
-        // 本次周期数据不足，重做一次采集（不计入 repeat_count）
-        exp->pos = 0;
-        exp->edge_count = 0;
-        // 重新开启注入以重试
-        exp->inj.State = true;
-        exp->last_Vd = 0.0f;
-        exp->last_Vq = 0.0f;
-        exp->state = INJECT_COLLECT;
-        break;
-      }
-
-      if (exp->inj.mode == INJECT_D || exp->inj.mode == INJECT_Q)
-      {
-        // 选择要用的 psi 缓冲区：Q 注入用 psi_q，否则使用 psi_d（如果需要同时计算可再扩展）
-        float* psi_buf = (exp->inj.mode == INJECT_Q) ? exp->psi_q_buf : exp->psi_d_buf;
-
-        // ---- 计算去均值后的最大 psi ----
-        float sum = 0.0f;
-        int cnt = 0;
-        for (int i = s_idx; i < e_idx; ++i)
-        {
-          sum += psi_buf[i];
-          cnt++;
-        }
-        float mean = (cnt > 0) ? (sum / (float)cnt) : 0.0f;
-
-        float max_psi = -1e30f;
-        float I_at_max = 0.0f;
-
-        for (int i = s_idx; i < e_idx; ++i)
-        {
-          float psi_c = psi_buf[i] - mean;
-          if (psi_c > max_psi)
-          {
-            max_psi = psi_c;
-            // 取磁链峰值点对应的电流
-            if (exp->inj.mode == INJECT_D)
-            {
-              I_at_max = exp->Id_buf[i];
-            }
-            else if (exp->inj.mode == INJECT_Q)
-            {
-              I_at_max = exp->Iq_buf[i];
-            }
-          }
-        }
-
-        // 如果数据有效，累积；否则重试（不计入）
-        if (max_psi > -1e29f)
-        {
-          exp->sum_max_psi += max_psi;
-          exp->sum_max_I += I_at_max;  // 新增
-          exp->repeat_count++;
-        }
-        else
-        {
-          // 无效数据，直接重试
-          exp->pos = 0;
-          exp->edge_count = 0;
-          exp->inj.State = true;
-          exp->state = INJECT_COLLECT;
-          break;
-        }
-
-        // ---- 判断是否已经达到重复次数 ----
-        if (exp->repeat_count < exp->repeat_times)
-        {
-          // 还需重复：为下一次注入做准备
-          exp->pos = 0;
-          exp->edge_count = 0;
-          exp->inj.State = true;  // 重新开启注入
-          exp->state = INJECT_COLLECT;
-        }
-        else
-        {
-          // 达到重复次数：计算平均并保存结果
-          float avg_psi = exp->sum_max_psi / (float)exp->repeat_times;
-          float avg_I = exp->sum_max_I / (float)exp->repeat_times;
-
-          exp->results[exp->step_index].Imax_value = avg_I;     // 现在是峰值点对应的电流
-          exp->results[exp->step_index].avg_max_psi = avg_psi;  // 峰值点磁链
-          exp->results[exp->step_index].cycles_used = exp->repeat_times;
-          // 若你同时使用 save_result，也可以调用：
-          save_result(avg_I, avg_psi, exp->repeat_times);
-
-          exp->step_index++;
-
-          // 清零累积器，为下一 Imax 做准备（NEXT_I 也会重置 pos/edge_count）
-          exp->sum_max_psi = 0.0F;
-          exp->sum_max_I = 0.0F;
-          exp->repeat_count = 0;
-
-          exp->state = NEXT_I;
-        }
-      }
-      else if (exp->inj.mode == INJECT_DQ)
-      {
-        // DQ 轴同时计算
-        float* psi_buf_d = exp->psi_d_buf;
-        float* psi_buf_q = exp->psi_q_buf;
-
-        // 计算 d 轴均值
-        float sum_d = 0.0f;
-        int cnt_d = 0;
-        for (int i = s_idx; i < e_idx; ++i)
-        {
-          sum_d += psi_buf_d[i];
-          cnt_d++;
-        }
-        float mean_d = (cnt_d > 0) ? (sum_d / (float)cnt_d) : 0.0f;
-
-        // 计算 q 轴均值
-        float sum_q = 0.0f;
-        int cnt_q = 0;
-        for (int i = s_idx; i < e_idx; ++i)
-        {
-          sum_q += psi_buf_q[i];
-          cnt_q++;
-        }
-        float mean_q = (cnt_q > 0) ? (sum_q / (float)cnt_q) : 0.0f;
-
-        for (int i = s_idx; i < e_idx; ++i)
-        {
-          psi_buf_d[i] -= mean_d;
-
-          psi_buf_q[i] -= mean_q;
-        }
-        process_cycle_for_dq_adq(exp, S);
-        // ---- 判断是否已经达到重复次数 ----
-        if (exp->repeat_count < exp->repeat_times)
-        {
-          // 还需重复：为下一次注入做准备
-          exp->pos = 0;
-          exp->edge_count = 0;
-          exp->inj.State = true;  // 重新开启注入
-          exp->state = INJECT_COLLECT;
-        }
-        else
-        {
-          exp->inj.State = false;
-          exp->state = LLS;
-        }
-      }
-      break;
-    }
-    case NEXT_I:
-    {
-      int curI = (int)exp->inj.Imax;
-      int newI = 0;
-
-      if (exp->step_index == 0)
-      {
-        // 第一次，直接跳到 start_I
-        newI = exp->start_I;
-      }
-      else
-      {
-        // 后续按 step_dir 增减
-        newI = curI + exp->step_dir;
-      }
-
-      // 检查是否超出范围
-      bool finished = false;
-      if (exp->step_dir < 0)
-      {
-        if (newI < exp->final_I) finished = true;
-      }
-      else
-      {
-        if (newI > exp->final_I) finished = true;
-      }
-
-      if (finished || exp->step_index >= exp->max_steps)
-      {
-        exp->inj.State = false;
-        exp->state = LLS;
-      }
-      else
-      {
-        exp->inj.Imax = (float)newI;
-        exp->pos = 0;
-        exp->edge_count = 0;
-        exp->state = INJECT_COLLECT;
-        // exp->inj.State = true;
-      }
-      break;
-    }
-
-    case LLS:
-    {
-      uint8_t X = 0;
-      LLS_Result_t lls;
-      if (exp->inj.mode == INJECT_D)
-      {
-        X = 5;
-        lls = Single_Axis_LLS(exp, X);  // X=5
-        g_results_ad0 = lls.ad0;
-        g_results_add = lls.add;
-        exp->LLS.ad0 = lls.ad0;
-        exp->LLS.add = lls.add;
-      }
-      if (exp->inj.mode == INJECT_Q)
-      {
-        X = 1;
-        lls = Single_Axis_LLS(exp, X);  // X=1
-        g_results_aq0 = lls.aq0;
-        g_results_aqq = lls.aqq;
-        exp->LLS.aq0 = lls.aq0;
-        exp->LLS.aqq = lls.aqq;
-      }
-      if (exp->inj.mode == INJECT_DQ)
-      {
-        float adq = 0.0f;
-        if (exp->cq_Sxx > 1e-12f)
-        {
-          adq = exp->cq_Sxy / exp->cq_Sxx;
-        }
-        else
-        {
-          adq = -1.0f;  // 或标记失败 / 正则化
-        }
-
-        // J (残差平方和)
-        float Jd = exp->sum_eps_id2;
-        float Jq = exp->sum_eps_iq2;
-
-        // 计算 R^2
-
-        float SST_id =
-            exp->sum_id2 - (exp->sum_id * exp->sum_id) / (float)exp->count_id;  // sum (id - mean)^2
-        float R2_d = (SST_id > 0.0f) ? (1.0f - Jd / SST_id) : 0.0f;
-
-        float SST_iq = exp->sum_iq2 - (exp->sum_iq * exp->sum_iq) / (float)exp->count_iq;
-        float R2_q = (SST_iq > 0.0f) ? (1.0f - Jq / SST_iq) : 0.0f;
-
-        exp->LLS.adq = adq;
-        exp->LLS.DQ.J[0] = Jd;
-        exp->LLS.DQ.J[1] = Jq;
-        exp->LLS.DQ.R2[0] = R2_d;
-        exp->LLS.DQ.R2[1] = R2_q;
-      }
-
-      exp->state = PENDING;
-      break;
-    }
-    case PENDING:
-    {
-      // 初始化方波注入器
-      exp->inj.Ud_amp = 0.0F;
-      exp->inj.Uq_amp = 0.0F;
-      exp->inj.Imax = 0.0F;
-      exp->inj.State = false;
-      exp->inj.inj_state_d = 0;
-      exp->inj.inj_state_q = 0;
-      exp->pos = 0;
-      exp->edge_count = 0;
-      exp->last_Vd = 0.0f;
-      exp->last_Vq = 0.0f;
-      exp->step_index = 0;
-      if (exp->inj.mode == INJECT_D)
-      {
-        exp->inj.mode = INJECT_Q;
-        exp->state = PROCESS;
-      }
-      else if (exp->inj.mode == INJECT_Q)
-      {
-        exp->inj.mode = INJECT_DQ;
-        exp->state = PROCESS;
-      }
-      else if (exp->inj.mode == INJECT_DQ)
-      {
-        exp->inj.mode = INJECT_D;
-        exp->state = DONE;
-      }
       break;
     }
     case DONE:
@@ -649,6 +318,8 @@ LLS_Result_t Single_Axis_LLS(FluxExperiment_t* exp, int exponent)
   float sum_xp2 = 0.0f;
   float sum_yx = 0.0f;
   float sum_yxp = 0.0f;
+  float sum_y = 0.0f;
+  float sum_y2 = 0.0f;
   int N = exp->step_index;
 
   for (int i = 0; i < N; i++)
@@ -656,7 +327,7 @@ LLS_Result_t Single_Axis_LLS(FluxExperiment_t* exp, int exponent)
     float psi = exp->results[i].avg_max_psi;
     float I = exp->results[i].Imax_value;
 
-    // 幂次计算：psi^(S+1)
+    // 幂次计算：psi^(exponent+1)
     float xp = 1.0f;
     for (int k = 0; k < exponent + 1; k++)
     {
@@ -667,26 +338,81 @@ LLS_Result_t Single_Axis_LLS(FluxExperiment_t* exp, int exponent)
     sum_xp += psi * xp;
     sum_xp2 += xp * xp;
 
+    sum_y += I;
+    sum_y2 += I * I;
+
     sum_yx += psi * I;
     sum_yxp += xp * I;
   }
 
   float det = sum_x2 * sum_xp2 - sum_xp * sum_xp;
+
+  // --- 计算残差平方和 J 和 R² ---
+  float ss_res = 0.0f;  // 残差平方和
+  float ss_tot = 0.0f;  // 总平方和
+  float mean_y = sum_y / (float)N;
   LLS_Result_t res = {0};
 
   if (fabsf(det) > 1e-12f)
   {
+    float b0 = 0.0f, b1 = 0.0f;
+
     if (exp->inj.mode == INJECT_D)
     {
-      res.ad0 = (sum_xp2 * sum_yx - sum_xp * sum_yxp) / det;
-      res.add = (sum_x2 * sum_yxp - sum_xp * sum_yx) / det;
+      res.ad0 = b0 = (sum_xp2 * sum_yx - sum_xp * sum_yxp) / det;
+      res.add = b1 = (sum_x2 * sum_yxp - sum_xp * sum_yx) / det;
+      for (int i = 0; i < N; i++)
+      {
+        float psi = exp->results[i].avg_max_psi;
+        float I = exp->results[i].Imax_value;
+
+        float xp = 1.0f;
+        for (int k = 0; k < exponent + 1; k++)
+        {
+          xp *= psi;
+        }
+
+        float I_hat = b0 * psi + b1 * xp;
+        float err = I - I_hat;
+
+        ss_res += err * err;
+        float diff = I - mean_y;
+        ss_tot += diff * diff;
+      }
+
+      res.D.J = ss_res;
+      res.D.R2 = (ss_tot > 1e-12f) ? (1.0f - ss_res / ss_tot) : 0.0f;
     }
     else if (exp->inj.mode == INJECT_Q)
     {
-      res.aq0 = (sum_xp2 * sum_yx - sum_xp * sum_yxp) / det;
-      res.aqq = (sum_x2 * sum_yxp - sum_xp * sum_yx) / det;
+      res.aq0 = b0 = (sum_xp2 * sum_yx - sum_xp * sum_yxp) / det;
+      res.aqq = b1 = (sum_x2 * sum_yxp - sum_xp * sum_yx) / det;
+      for (int i = 0; i < N; i++)
+      {
+        float psi = exp->results[i].avg_max_psi;
+        float I = exp->results[i].Imax_value;
+
+        float xp = 1.0f;
+        for (int k = 0; k < exponent + 1; k++)
+        {
+          xp *= psi;
+        }
+
+        float I_hat = b0 * psi + b1 * xp;
+        float err = I - I_hat;
+
+        ss_res += err * err;
+        float diff = I - mean_y;
+        ss_tot += diff * diff;
+      }
+
+      res.Q.J = ss_res;
+      res.Q.R2 = (ss_tot > 1e-12f) ? (1.0f - ss_res / ss_tot) : 0.0f;
     }
   }
+
+  // 存入 exp->LLS，方便外部调用
+  exp->LLS = res;
 
   return res;
 }
@@ -742,4 +468,190 @@ void process_cycle_for_dq_adq(FluxExperiment_t* exp, int s)
     exp->sum_eps_id2 += id_res * id_res;
     exp->sum_eps_iq2 += iq_res * iq_res;
   }
+}
+
+// 方波注入电压（D/Q/DQ 通用）
+static void square_injection(FluxExperiment_t* exp, float Id, float Iq, float* Ud, float* Uq)
+{
+  if (!exp->inj.State)
+  {
+    // 注入关闭：输出 0，不改变 inj_state 以保持相位连续性
+    exp->inj.Vd = 0.0f;
+    exp->inj.Vq = 0.0f;
+    *Ud = 0.0f;
+    *Uq = 0.0f;
+    return;
+  }
+
+  // D 轴
+  if (exp->inj.mode == INJECT_D || exp->inj.mode == INJECT_DQ)
+  {
+    if (Id >= exp->inj.Imax)
+    {
+      exp->inj.inj_state_d = -1;
+    }
+    else if (Id <= -exp->inj.Imax)
+    {
+      exp->inj.inj_state_d = +1;
+    }
+    exp->inj.Vd = (exp->inj.inj_state_d >= 0) ? exp->inj.Ud_amp : -exp->inj.Ud_amp;
+  }
+
+  // Q 轴
+  if (exp->inj.mode == INJECT_Q || exp->inj.mode == INJECT_DQ)
+  {
+    if (Iq >= exp->inj.Imax)
+    {
+      exp->inj.inj_state_q = -1;
+    }
+    else if (Iq <= -exp->inj.Imax)
+    {
+      exp->inj.inj_state_q = +1;
+    }
+    exp->inj.Vq = (exp->inj.inj_state_q >= 0) ? exp->inj.Uq_amp : -exp->inj.Uq_amp;
+  }
+
+  *Ud = exp->inj.Vd;
+  *Uq = exp->inj.Vq;
+}
+
+// 返回 true 表示检测到完整周期（wait_edges + 3 个有效边沿）
+// 注意：本函数只计数，不做 pos/edge_count 的清零（上层负责）
+static bool detect_edge(FluxExperiment_t* exp, float Ud, float Uq)
+{
+  if (!exp->inj.State)
+  {
+    // 注入未开启，不计边沿
+    exp->last_Vd = Ud;
+    exp->last_Vq = Uq;
+    return false;
+  }
+
+  bool edge_detected = false;
+
+  if (exp->inj.mode == INJECT_D || exp->inj.mode == INJECT_DQ)
+  {
+    if (Ud == -exp->last_Vd) edge_detected = true;
+  }
+  else if (exp->inj.mode == INJECT_Q)
+  {
+    if (Uq == -exp->last_Vq) edge_detected = true;
+  }
+
+  if (edge_detected)
+  {
+    exp->edge_count++;
+
+    // 第一次有效边沿，记录起点（保留原逻辑）
+    if (exp->edge_count == exp->wait_edges + 1)
+    {
+      exp->pos = 0;  // buffer 从 0 开始存
+      exp->edge_idx[0] = 0;
+    }
+
+    // 收到 wait_edges + 3 个边沿时，说明完整周期结束
+    if (exp->edge_count == exp->wait_edges + 3)
+    {
+      exp->edge_idx[1] = exp->pos;
+      // 注意：不在这里清零 edge_count/pos — 上层处理完后负责重置或续采
+      exp->last_Vd = Ud;
+      exp->last_Vq = Uq;
+      return true;
+    }
+  }
+
+  exp->last_Vd = Ud;
+  exp->last_Vq = Uq;
+  return false;
+}
+
+// 缓冲区写入 + 磁链积分
+static void collect_sample(FluxExperiment_t* exp, float Id, float Iq)
+{
+  if (exp->pos >= exp->sample_capacity) return;
+
+  int idx = exp->pos;
+  exp->Ud_buf[idx] = exp->last_Vd;
+  exp->Id_buf[idx] = Id;
+  exp->Uq_buf[idx] = exp->last_Vq;
+  exp->Iq_buf[idx] = Iq;
+
+  if (idx == 0)
+  {
+    exp->psi_d_buf[idx] = 0.0f;
+    exp->psi_q_buf[idx] = 0.0f;
+  }
+  else
+  {
+    int prev = idx - 1;
+    float integrand_d = exp->last_Vd - exp->Rs_est * Id;
+    float integrand_q = exp->last_Vq - exp->Rs_est * Iq;
+    exp->psi_d_buf[idx] = exp->psi_d_buf[prev] + exp->Ts * integrand_d;
+    exp->psi_q_buf[idx] = exp->psi_q_buf[prev] + exp->Ts * integrand_q;
+  }
+  exp->pos++;
+}
+
+// 计算均值并找到峰值点（D/Q 单轴模式用）
+static bool process_single_axis_cycle(FluxExperiment_t* exp, float* psi_buf, float* I_buf,
+                                      float* avg_I, float* avg_psi)
+{
+  float sum = 0.0f;
+  int cnt = 0;
+  for (int i = exp->edge_idx[0]; i < exp->edge_idx[1]; i++)
+  {
+    sum += psi_buf[i];
+    cnt++;
+  }
+  float mean = (cnt > 0) ? sum / (float)cnt : 0.0f;
+
+  float max_psi = -1e30f, I_at_max = 0.0f;
+  for (int i = exp->edge_idx[0]; i < exp->edge_idx[1]; i++)
+  {
+    float psi_c = psi_buf[i] - mean;
+    if (psi_c > max_psi)
+    {
+      max_psi = psi_c;
+      I_at_max = I_buf[i];
+    }
+  }
+
+  if (max_psi < -1e29f) return false;
+
+  exp->sum_max_psi += max_psi;
+  exp->sum_max_I += I_at_max;
+  exp->repeat_count++;
+
+  if (exp->repeat_count >= exp->repeat_times)
+  {
+    *avg_psi = exp->sum_max_psi / (float)exp->repeat_times;
+    *avg_I = exp->sum_max_I / (float)exp->repeat_times;
+    exp->sum_max_psi = exp->sum_max_I = 0.0f;
+    exp->repeat_count = 0;
+    return true;  // 本轮结束
+  }
+  return false;  // 还要继续
+}
+
+// 切换到下一 Imax
+static bool next_imax(FluxExperiment_t* exp)
+{
+  int curI = (int)exp->inj.Imax;
+  int newI = (exp->step_index == 0) ? exp->start_I : curI + exp->step_dir;
+
+  bool finished = false;
+  if (exp->step_dir < 0)
+  {
+    finished = (newI < exp->final_I);
+  }
+  else
+  {
+    finished = (newI > exp->final_I);
+  }
+
+  if (finished || exp->step_index >= exp->max_steps) return false;
+
+  exp->inj.Imax = (float)newI;
+  exp->pos = exp->edge_count = 0;
+  return true;
 }

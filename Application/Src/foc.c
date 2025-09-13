@@ -47,7 +47,7 @@ void FOC_Main(void)
       Parameter_Init();
       FOC.Mode = IDLE;
 
-      Experiment_Init(&Experiment, FOC.Ts, 512, 2, 20, 2, 10, 1, 200);
+      Experiment_Init(&Experiment, FOC.Ts, 512, 2, 20, 2, 10, 1, 100);
       break;
     }
     case IDLE:

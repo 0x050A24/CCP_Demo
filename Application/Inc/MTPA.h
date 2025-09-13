@@ -57,12 +57,9 @@ typedef struct
 typedef enum
 {
   WAIT = 0,
-  EST_RS,          // 估定 Rs
-  PROCESS,         // 处理本步数据
-  INJECT_COLLECT,  // 注入并收集样本
-  NEXT_I,          // 切换到下一个 Imax
-  LLS,
-  PENDING,
+  EST_RS,
+  D_AXIS_INJECT,
+  D_AXIS_PROCESS,
   DONE
 } ExpState_e;
 
@@ -101,7 +98,9 @@ typedef struct
   float sum_max_psi;  // 累积的 max_psi
   float sum_max_I;    // 累积的 max_I
 
-  int wait_edges;  // 开始采集前需要等待的边沿数
+  int wait_edges;       // 开始采集前需要等待的边沿数
+  float wait_timer;  // 延时计时器（秒）
+  bool timer_active;    // 是否正在计时
 
   // sweeping
   int start_I;   // 起始 Imax (int A)
