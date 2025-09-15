@@ -1,4 +1,4 @@
-#include "MTPA.h"
+#include "identification.h"
 #include <stdbool.h>
 #include <string.h>
 #include "math.h"
@@ -6,6 +6,11 @@
 
 /* Estimate_Rs 与 SquareWaveGenerater 原型（你已有的实现） */
 static inline bool Estimate_Rs(float Current, float* Voltage_out, float* Rs);
+static inline void square_wave_injector(FluxExperiment_t* exp, float Id, float Iq, float* Ud,
+                                        float* Uq);
+static bool edge_detect(FluxExperiment_t* exp, float* Ud, float* Uq);
+static inline void cycle_capture(FluxExperiment_t* exp);
+static inline void buffer_load(FluxExperiment_t* exp, float Id, float Iq);
 static LLS_Result_t Single_Axis_LLS(FluxExperiment_t* exp, int exponent);
 static void process_cycle_for_dq_adq(FluxExperiment_t* exp, int s);
 
@@ -123,83 +128,12 @@ void Experiment_Step(FluxExperiment_t* exp, float Id, float Iq, float* Ud, float
 
     case INJECT_COLLECT:
     {
-      if (exp->inj.State == false)
+      // --- 更新注入器状态 ---
+      square_wave_injector(exp, Id, Iq, Ud, Uq);
+
+      if (edge_detect(exp, Ud, Uq))
       {
-        exp->inj.Vd = 0.0F;
-        exp->inj.Vq = 0.0F;
-        *Ud = exp->inj.Vd;
-        *Uq = exp->inj.Vq;
-        break;
-      }
-
-      if (exp->inj.State)
-      {
-        // --- 方波注入 D 轴 ---
-        if (exp->inj.mode == INJECT_D || exp->inj.mode == INJECT_DQ)
-        {
-          if (Id >= exp->inj.Imax)
-          {
-            exp->inj.inj_state_d = -1;
-          }
-          else if (Id <= -exp->inj.Imax)
-          {
-            exp->inj.inj_state_d = +1;
-          }
-          exp->inj.Vd = (exp->inj.inj_state_d >= 0) ? exp->inj.Ud_amp : -exp->inj.Ud_amp;
-        }
-
-        // --- 方波注入 Q 轴 ---
-        if (exp->inj.mode == INJECT_Q || exp->inj.mode == INJECT_DQ)
-        {
-          if (Iq >= exp->inj.Imax)
-          {
-            exp->inj.inj_state_q = -1;
-          }
-          else if (Iq <= -exp->inj.Imax)
-          {
-            exp->inj.inj_state_q = +1;
-          }
-          exp->inj.Vq = (exp->inj.inj_state_q >= 0) ? exp->inj.Uq_amp : -exp->inj.Uq_amp;
-        }
-
-        // 本次输出电压
-        *Ud = exp->inj.Vd;
-        *Uq = exp->inj.Vq;
-      }
-
-      bool edge_detected = false;
-
-      if (exp->inj.mode == INJECT_D || exp->inj.mode == INJECT_DQ)
-      {
-        if (*Ud == -exp->last_Vd) edge_detected = true;
-      }
-      if (exp->inj.mode == INJECT_Q)
-      {
-        if (*Uq == -exp->last_Vq) edge_detected = true;
-      }
-
-      if (edge_detected)
-      {
-        exp->edge_count++;
-
-        // 第一次有效边沿，记录起点
-        if (exp->edge_count == exp->wait_edges + 1)
-        {
-          exp->pos = 0;  // buffer 从 0 开始存
-          exp->edge_idx[0] = 0;
-        }
-
-        // 收到 wait_edges + 3 个边沿时，说明完整周期结束
-        if (exp->edge_count == exp->wait_edges + 3)
-        {
-          exp->edge_idx[1] = exp->pos;
-          exp->state = PROCESS;
-          exp->inj.State = false;
-          exp->inj.Vd = 0.0F;
-          exp->inj.Vq = 0.0F;
-          *Ud = exp->inj.Vd;
-          *Uq = exp->inj.Vq;
-        }
+        cycle_capture(exp);
       }
 
       // --- 存 buffer（仅在等待期结束后才写入） ---
@@ -207,31 +141,7 @@ void Experiment_Step(FluxExperiment_t* exp, float Id, float Iq, float* Ud, float
       {
         if (exp->pos < exp->sample_capacity)
         {
-          int idx = exp->pos;
-          exp->Ud_buf[idx] = exp->last_Vd;
-          exp->Id_buf[idx] = Id;
-          exp->Uq_buf[idx] = exp->last_Vq;
-          exp->Iq_buf[idx] = Iq;
-
-          if (idx == 0)
-          {
-            exp->psi_d_buf[idx] = 0.0f;
-            exp->psi_q_buf[idx] = 0.0f;
-          }
-          else
-          {
-            int prev = idx - 1;
-            float integrand_d = (exp->last_Vd - exp->Rs_est * Id);
-            float integrand_q = (exp->last_Vq - exp->Rs_est * Iq);
-            exp->psi_d_buf[idx] = exp->psi_d_buf[prev] + exp->Ts * integrand_d;
-            exp->psi_q_buf[idx] = exp->psi_q_buf[prev] + exp->Ts * integrand_q;
-          }
-          exp->pos++;
-
-          if (exp->inj.mode == INJECT_DQ)
-          {
-            exp->repeat_count ++;
-          }
+          buffer_load(exp, Id, Iq);
         }
         else
         {
@@ -240,8 +150,6 @@ void Experiment_Step(FluxExperiment_t* exp, float Id, float Iq, float* Ud, float
           exp->inj.State = false;
           exp->inj.Vd = 0.0F;
           exp->inj.Vq = 0.0F;
-          *Ud = exp->inj.Vd;
-          *Uq = exp->inj.Vq;
         }
       }
       exp->last_Vd = *Ud;
@@ -255,6 +163,8 @@ void Experiment_Step(FluxExperiment_t* exp, float Id, float Iq, float* Ud, float
       // edge_idx[0] = 起点（写入 buffer 时的 0）
       // edge_idx[1] = 结束位置（写入时 pos）
       exp->inj.State = false;
+      *Ud = exp->inj.Vd = 0.0F;
+      *Uq = exp->inj.Vq = 0.0F;
       if (exp->edge_count < 2)
       {
         // 不应发生（INJECT_COLLECT 已经保证 >= wait_edges+3 才进入 PROCESS）
@@ -649,6 +559,8 @@ LLS_Result_t Single_Axis_LLS(FluxExperiment_t* exp, int exponent)
   float sum_xp2 = 0.0f;
   float sum_yx = 0.0f;
   float sum_yxp = 0.0f;
+  float sum_y = 0.0f;
+  float sum_y2 = 0.0f;
   int N = exp->step_index;
 
   for (int i = 0; i < N; i++)
@@ -656,7 +568,7 @@ LLS_Result_t Single_Axis_LLS(FluxExperiment_t* exp, int exponent)
     float psi = exp->results[i].avg_max_psi;
     float I = exp->results[i].Imax_value;
 
-    // 幂次计算：psi^(S+1)
+    // 幂次计算：psi^(exponent+1)
     float xp = 1.0f;
     for (int k = 0; k < exponent + 1; k++)
     {
@@ -667,28 +579,195 @@ LLS_Result_t Single_Axis_LLS(FluxExperiment_t* exp, int exponent)
     sum_xp += psi * xp;
     sum_xp2 += xp * xp;
 
+    sum_y += I;
+    sum_y2 += I * I;
+
     sum_yx += psi * I;
     sum_yxp += xp * I;
   }
 
   float det = sum_x2 * sum_xp2 - sum_xp * sum_xp;
-  LLS_Result_t res = {0};
+
+  // --- 计算残差平方和 J 和 R² ---
+  float ss_res = 0.0f;  // 残差平方和
+  float ss_tot = 0.0f;  // 总平方和
+  float mean_y = sum_y / (float)N;
 
   if (fabsf(det) > 1e-12f)
   {
+    float b0 = 0.0f, b1 = 0.0f;
+
     if (exp->inj.mode == INJECT_D)
     {
-      res.ad0 = (sum_xp2 * sum_yx - sum_xp * sum_yxp) / det;
-      res.add = (sum_x2 * sum_yxp - sum_xp * sum_yx) / det;
+      exp->LLS.ad0 = b0 = (sum_xp2 * sum_yx - sum_xp * sum_yxp) / det;
+      exp->LLS.add = b1 = (sum_x2 * sum_yxp - sum_xp * sum_yx) / det;
+      for (int i = 0; i < N; i++)
+      {
+        float psi = exp->results[i].avg_max_psi;
+        float I = exp->results[i].Imax_value;
+
+        float xp = 1.0f;
+        for (int k = 0; k < exponent + 1; k++)
+        {
+          xp *= psi;
+        }
+
+        float I_hat = b0 * psi + b1 * xp;
+        float err = I - I_hat;
+
+        ss_res += err * err;
+        float diff = I - mean_y;
+        ss_tot += diff * diff;
+      }
+
+      exp->LLS.D.J = ss_res;
+      exp->LLS.D.R2 = (ss_tot > 1e-12f) ? (1.0f - ss_res / ss_tot) : 0.0f;
     }
     else if (exp->inj.mode == INJECT_Q)
     {
-      res.aq0 = (sum_xp2 * sum_yx - sum_xp * sum_yxp) / det;
-      res.aqq = (sum_x2 * sum_yxp - sum_xp * sum_yx) / det;
+      exp->LLS.aq0 = b0 = (sum_xp2 * sum_yx - sum_xp * sum_yxp) / det;
+      exp->LLS.aqq = b1 = (sum_x2 * sum_yxp - sum_xp * sum_yx) / det;
+      for (int i = 0; i < N; i++)
+      {
+        float psi = exp->results[i].avg_max_psi;
+        float I = exp->results[i].Imax_value;
+
+        float xp = 1.0f;
+        for (int k = 0; k < exponent + 1; k++)
+        {
+          xp *= psi;
+        }
+
+        float I_hat = b0 * psi + b1 * xp;
+        float err = I - I_hat;
+
+        ss_res += err * err;
+        float diff = I - mean_y;
+        ss_tot += diff * diff;
+      }
+
+      exp->LLS.Q.J = ss_res;
+      exp->LLS.Q.R2 = (ss_tot > 1e-12f) ? (1.0f - ss_res / ss_tot) : 0.0f;
     }
   }
 
-  return res;
+  // 存入 exp->LLS，方便外部调用
+
+  return exp->LLS;
+}
+
+bool edge_detect(FluxExperiment_t* exp, float* Ud, float* Uq)
+{
+  bool edge_detected = false;
+
+  if (exp->inj.mode == INJECT_D || exp->inj.mode == INJECT_DQ)
+  {
+    if (*Ud == -exp->last_Vd) edge_detected = true;
+  }
+  if (exp->inj.mode == INJECT_Q)
+  {
+    if (*Uq == -exp->last_Vq) edge_detected = true;
+  }
+
+  return edge_detected;
+}
+
+void cycle_capture(FluxExperiment_t* exp)
+{
+  exp->edge_count++;
+
+  // 第一次有效边沿，记录起点
+  if (exp->edge_count == exp->wait_edges + 1)
+  {
+    exp->pos = 0;  // buffer 从 0 开始存
+    exp->edge_idx[0] = 0;
+  }
+
+  // 收到 wait_edges + 3 个边沿时，说明完整周期结束
+  if (exp->edge_count == exp->wait_edges + 3)
+  {
+    exp->edge_idx[1] = exp->pos;
+    exp->state = PROCESS;
+    exp->inj.State = false;
+    exp->inj.Vd = 0.0F;
+    exp->inj.Vq = 0.0F;
+  }
+}
+
+void buffer_load(FluxExperiment_t* exp, float Id, float Iq)
+{
+  int idx = exp->pos;
+  exp->Ud_buf[idx] = exp->last_Vd;
+  exp->Id_buf[idx] = Id;
+  exp->Uq_buf[idx] = exp->last_Vq;
+  exp->Iq_buf[idx] = Iq;
+
+  if (idx == 0)
+  {
+    exp->psi_d_buf[idx] = 0.0f;
+    exp->psi_q_buf[idx] = 0.0f;
+  }
+  else
+  {
+    int prev = idx - 1;
+    float integrand_d = (exp->last_Vd - exp->Rs_est * Id);
+    float integrand_q = (exp->last_Vq - exp->Rs_est * Iq);
+    exp->psi_d_buf[idx] = exp->psi_d_buf[prev] + exp->Ts * integrand_d;
+    exp->psi_q_buf[idx] = exp->psi_q_buf[prev] + exp->Ts * integrand_q;
+  }
+  exp->pos++;
+
+  if (exp->inj.mode == INJECT_DQ)
+  {
+    exp->repeat_count++;
+  }
+}
+
+void square_wave_injector(FluxExperiment_t* exp, float Id, float Iq, float* Ud, float* Uq)
+{
+  if (exp->inj.State == false)
+  {
+    exp->inj.Vd = 0.0F;
+    exp->inj.Vq = 0.0F;
+    *Ud = exp->inj.Vd;
+    *Uq = exp->inj.Vq;
+    return;
+  }
+
+  if (exp->inj.State)
+  {
+    // --- 方波注入 D 轴 ---
+    if (exp->inj.mode == INJECT_D || exp->inj.mode == INJECT_DQ)
+    {
+      if (Id >= exp->inj.Imax)
+      {
+        exp->inj.inj_state_d = -1;
+      }
+      else if (Id <= -exp->inj.Imax)
+      {
+        exp->inj.inj_state_d = +1;
+      }
+      exp->inj.Vd = (exp->inj.inj_state_d >= 0) ? exp->inj.Ud_amp : -exp->inj.Ud_amp;
+    }
+
+    // --- 方波注入 Q 轴 ---
+    if (exp->inj.mode == INJECT_Q || exp->inj.mode == INJECT_DQ)
+    {
+      if (Iq >= exp->inj.Imax)
+      {
+        exp->inj.inj_state_q = -1;
+      }
+      else if (Iq <= -exp->inj.Imax)
+      {
+        exp->inj.inj_state_q = +1;
+      }
+      exp->inj.Vq = (exp->inj.inj_state_q >= 0) ? exp->inj.Uq_amp : -exp->inj.Uq_amp;
+    }
+
+    // 本次输出电压
+    *Ud = exp->inj.Vd;
+    *Uq = exp->inj.Vq;
+  }
 }
 
 void process_cycle_for_dq_adq(FluxExperiment_t* exp, int s)
