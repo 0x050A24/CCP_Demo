@@ -14,9 +14,12 @@ static int stable_counter = 0;    // 稳定计数器
 
 // ==================== MTPA 求解函数(用户需实现) ====================
 
-float a_d = 5.59756, b_d = 5.15426, m = 5.0;
+/*float a_d = 5.59756, b_d = 5.15426, m = 5.0;
 float a_q = 6.306, b_q = 171.571, n = 1.0;
-float c_coeff = 35.90, h = 1.0, j = 0.0;
+float c_coeff = 35.90, h = 1.0, j = 0.0;*/
+float a_d = 6.019, b_d = 4.3238, m = 5.0;
+float a_q = 10.524, b_q = 128.6657, n = 1.0;
+float c_coeff = 62.6, h = 1.0, j = 0.0;
 
 // ---------- 电流模型 (ψd, ψq → id, iq) ----------
 float calc_id(float psi_d, float psi_q) {

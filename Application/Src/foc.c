@@ -119,7 +119,7 @@ void FOC_Main(void)
         else
         {
           MTPA_update_ISR(-iq_meas);
-          FOC.Id_ref = -Id_mtpa;
+          FOC.Id_ref = Id_mtpa;
         }
       // FOC.Id_ref = IQtest;
       PID_Controller(FOC.Id_ref, FOC.Id, &Id_PID);
