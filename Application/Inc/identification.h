@@ -31,26 +31,24 @@ typedef struct
 
 typedef struct
 {
+  float beta0;
+  float beta1;
   float J;
   float R2;
-} Residual_t;
+} Result_t;
 
 typedef struct
 {
+  float adq;
   float J[2];
   float R2[2];
-} ResidualDQ_t;
+} ResultDQ_t;
 
 typedef struct
 {
-  float ad0;
-  float add;
-  float aq0;
-  float aqq;
-  float adq;
-  Residual_t D;
-  Residual_t Q;
-  ResidualDQ_t DQ;
+  Result_t D;
+  Result_t Q;
+  ResultDQ_t DQ;
 } LLS_Result_t;
 
 /* 状态机状态 */

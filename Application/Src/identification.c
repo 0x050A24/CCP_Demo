@@ -11,7 +11,12 @@ static inline void square_wave_injector(FluxExperiment_t* exp, float Id, float I
 static bool edge_detect(FluxExperiment_t* exp, float* Ud, float* Uq);
 static inline void cycle_capture(FluxExperiment_t* exp);
 static inline void buffer_load(FluxExperiment_t* exp, float Id, float Iq);
-static LLS_Result_t Single_Axis_LLS(FluxExperiment_t* exp, int exponent);
+static inline bool cal_single_psi(FluxExperiment_t* exp);
+static inline bool cal_avg_max_psi(FluxExperiment_t* exp);
+static inline bool cal_DQ_psi(FluxExperiment_t* exp);
+static inline bool cal_next_current(FluxExperiment_t* exp);
+static inline void Single_Axis_LLS(FluxExperiment_t* exp, int exponent, Result_t* result);
+static inline void Cross_Axis_LLS(FluxExperiment_t* exp, ResultDQ_t* result);
 static void process_cycle_for_dq_adq(FluxExperiment_t* exp, int s);
 
 /* 结果结构：每个 Imax 只保存最终的 avg_max_psi（和 Imax 值） */
@@ -65,6 +70,14 @@ void Experiment_Init(FluxExperiment_t* exp, float Ts, int sample_capacity, int r
   exp->state = WAIT;
   exp->last_Vd = 0.0f;
   exp->last_Vq = 0.0f;
+  // 初始化方波注入器
+  exp->inj.Ud_amp = 0.0F;
+  exp->inj.Uq_amp = 0.0F;
+  exp->inj.Imax = 0.0F;
+  exp->inj.State = false;
+  exp->inj.mode = INJECT_D;
+  exp->inj.inj_state_d = 0;
+  exp->inj.inj_state_q = 0;
 }
 
 void Experiment_Step(FluxExperiment_t* exp, float Id, float Iq, float* Ud, float* Uq)
@@ -76,6 +89,7 @@ void Experiment_Step(FluxExperiment_t* exp, float Id, float Iq, float* Ud, float
     case WAIT:
       *Ud = 0.0f;
       *Uq = 0.0f;
+
       //   if (exp->Running && exp->Rs_est == 0.0F)
       //   {
       //     exp->state = EST_RS;
@@ -89,16 +103,15 @@ void Experiment_Step(FluxExperiment_t* exp, float Id, float Iq, float* Ud, float
 
     case EST_RS:
     {
+      exp->Running = true;
       float Voltage_out = 0.0f;
       float Rs_tmp = 0.0f;
-
-      bool done = Estimate_Rs(Id, &Voltage_out, &Rs_tmp);
 
       // 直接把 Rs 估计电压输出到电机
       *Ud = Voltage_out;
       *Uq = 0.0f;
 
-      if (done)
+      if (Estimate_Rs(Id, &Voltage_out, &Rs_tmp))
       {
         // 保存 Rs
         exp->Rs_est = Rs_tmp;
@@ -107,19 +120,6 @@ void Experiment_Step(FluxExperiment_t* exp, float Id, float Iq, float* Ud, float
         *Ud = 0.0f;
         *Uq = 0.0f;
 
-        // 初始化方波注入器
-        exp->inj.Ud_amp = 0.0F;
-        exp->inj.Uq_amp = 0.0F;
-        exp->inj.Imax = 0.0F;
-        exp->inj.State = false;
-        exp->inj.mode = INJECT_D;
-        exp->inj.inj_state_d = 0;
-        exp->inj.inj_state_q = 0;
-
-        exp->pos = 0;
-        exp->edge_count = 0;
-        exp->last_Vd = 0.0f;
-        exp->last_Vq = 0.0f;
         // exp->state = INJECT_COLLECT;
         exp->state = WAIT;
       }
@@ -159,9 +159,6 @@ void Experiment_Step(FluxExperiment_t* exp, float Id, float Iq, float* Ud, float
 
     case PROCESS:
     {
-      // ---- 用 INJECT_COLLECT 写好的两个索引表示一个周期 ----
-      // edge_idx[0] = 起点（写入 buffer 时的 0）
-      // edge_idx[1] = 结束位置（写入时 pos）
       exp->inj.State = false;
       *Ud = exp->inj.Vd = 0.0F;
       *Uq = exp->inj.Vq = 0.0F;
@@ -171,148 +168,34 @@ void Experiment_Step(FluxExperiment_t* exp, float Id, float Iq, float* Ud, float
         exp->state = NEXT_I;
         break;
       }
-
-      int s_idx = exp->edge_idx[0];
-      int e_idx = exp->edge_idx[1];
-
-      // 检查样本数是否足够
-      if (e_idx <= s_idx + 1)
-      {
-        // 本次周期数据不足，重做一次采集（不计入 repeat_count）
-        exp->pos = 0;
-        exp->edge_count = 0;
-        // 重新开启注入以重试
-        exp->inj.State = true;
-        exp->last_Vd = 0.0f;
-        exp->last_Vq = 0.0f;
-        exp->state = INJECT_COLLECT;
-        break;
-      }
-
       if (exp->inj.mode == INJECT_D || exp->inj.mode == INJECT_Q)
       {
-        // 选择要用的 psi 缓冲区：Q 注入用 psi_q，否则使用 psi_d（如果需要同时计算可再扩展）
-        float* psi_buf = (exp->inj.mode == INJECT_Q) ? exp->psi_q_buf : exp->psi_d_buf;
-
-        // ---- 计算去均值后的最大 psi ----
-        float sum = 0.0f;
-        int cnt = 0;
-        for (int i = s_idx; i < e_idx; ++i)
-        {
-          sum += psi_buf[i];
-          cnt++;
-        }
-        float mean = (cnt > 0) ? (sum / (float)cnt) : 0.0f;
-
-        float max_psi = -1e30f;
-        float I_at_max = 0.0f;
-
-        for (int i = s_idx; i < e_idx; ++i)
-        {
-          float psi_c = psi_buf[i] - mean;
-          if (psi_c > max_psi)
-          {
-            max_psi = psi_c;
-            // 取磁链峰值点对应的电流
-            if (exp->inj.mode == INJECT_D)
-            {
-              I_at_max = exp->Id_buf[i];
-            }
-            else if (exp->inj.mode == INJECT_Q)
-            {
-              I_at_max = exp->Iq_buf[i];
-            }
-          }
-        }
-
-        // 如果数据有效，累积；否则重试（不计入）
-        if (max_psi > -1e29f)
-        {
-          exp->sum_max_psi += max_psi;
-          exp->sum_max_I += I_at_max;  // 新增
-          exp->repeat_count++;
-        }
-        else
+        if (cal_single_psi(exp) == false)
         {
           // 无效数据，直接重试
-          exp->pos = 0;
-          exp->edge_count = 0;
           exp->inj.State = true;
           exp->state = INJECT_COLLECT;
           break;
         }
 
-        // ---- 判断是否已经达到重复次数 ----
-        if (exp->repeat_count < exp->repeat_times)
+        if (cal_avg_max_psi(exp))
         {
-          // 还需重复：为下一次注入做准备
-          exp->pos = 0;
-          exp->edge_count = 0;
-          exp->inj.State = true;  // 重新开启注入
-          exp->state = INJECT_COLLECT;
+          exp->state = NEXT_I;
         }
         else
         {
-          // 达到重复次数：计算平均并保存结果
-          float avg_psi = exp->sum_max_psi / (float)exp->repeat_times;
-          float avg_I = exp->sum_max_I / (float)exp->repeat_times;
-
-          exp->results[exp->step_index].Imax_value = avg_I;     // 现在是峰值点对应的电流
-          exp->results[exp->step_index].avg_max_psi = avg_psi;  // 峰值点磁链
-          exp->results[exp->step_index].cycles_used = exp->repeat_times;
-          // 若你同时使用 save_result，也可以调用：
-          save_result(avg_I, avg_psi, exp->repeat_times);
-
-          exp->step_index++;
-
-          // 清零累积器，为下一 Imax 做准备（NEXT_I 也会重置 pos/edge_count）
-          exp->sum_max_psi = 0.0F;
-          exp->sum_max_I = 0.0F;
-          exp->repeat_count = 0;
-
-          exp->state = NEXT_I;
+          // 未达到重复次数
+          exp->inj.State = true;  // 重新开启注入
+          exp->state = INJECT_COLLECT;
         }
       }
-      else if (exp->inj.mode == INJECT_DQ)
+
+      if (exp->inj.mode == INJECT_DQ)
       {
-        // DQ 轴同时计算
-        float* psi_buf_d = exp->psi_d_buf;
-        float* psi_buf_q = exp->psi_q_buf;
-
-        // 计算 d 轴均值
-        float sum_d = 0.0f;
-        int cnt_d = 0;
-        for (int i = s_idx; i < e_idx; ++i)
+        if (cal_DQ_psi(exp) == false)
         {
-          sum_d += psi_buf_d[i];
-          cnt_d++;
-        }
-        float mean_d = (cnt_d > 0) ? (sum_d / (float)cnt_d) : 0.0f;
-
-        // 计算 q 轴均值
-        float sum_q = 0.0f;
-        int cnt_q = 0;
-        for (int i = s_idx; i < e_idx; ++i)
-        {
-          sum_q += psi_buf_q[i];
-          cnt_q++;
-        }
-        float mean_q = (cnt_q > 0) ? (sum_q / (float)cnt_q) : 0.0f;
-
-        for (int i = s_idx; i < e_idx; ++i)
-        {
-          psi_buf_d[i] -= mean_d;
-
-          psi_buf_q[i] -= mean_q;
-        }
-        process_cycle_for_dq_adq(exp, S);
-        // ---- 判断是否已经达到重复次数 ----
-        if (exp->repeat_count < exp->repeat_times)
-        {
-          // 还需重复：为下一次注入做准备
-          exp->pos = 0;
-          exp->edge_count = 0;
-          exp->inj.State = true;  // 重新开启注入
+          // 无效数据，直接重试
+          exp->inj.State = true;
           exp->state = INJECT_COLLECT;
         }
         else
@@ -325,41 +208,13 @@ void Experiment_Step(FluxExperiment_t* exp, float Id, float Iq, float* Ud, float
     }
     case NEXT_I:
     {
-      int curI = (int)exp->inj.Imax;
-      int newI = 0;
-
-      if (exp->step_index == 0)
-      {
-        // 第一次，直接跳到 start_I
-        newI = exp->start_I;
-      }
-      else
-      {
-        // 后续按 step_dir 增减
-        newI = curI + exp->step_dir;
-      }
-
-      // 检查是否超出范围
-      bool finished = false;
-      if (exp->step_dir < 0)
-      {
-        if (newI < exp->final_I) finished = true;
-      }
-      else
-      {
-        if (newI > exp->final_I) finished = true;
-      }
-
-      if (finished || exp->step_index >= exp->max_steps)
+      if (cal_next_current(exp))
       {
         exp->inj.State = false;
         exp->state = LLS;
       }
       else
       {
-        exp->inj.Imax = (float)newI;
-        exp->pos = 0;
-        exp->edge_count = 0;
         exp->state = INJECT_COLLECT;
         // exp->inj.State = true;
       }
@@ -369,55 +224,19 @@ void Experiment_Step(FluxExperiment_t* exp, float Id, float Iq, float* Ud, float
     case LLS:
     {
       uint8_t X = 0;
-      LLS_Result_t lls;
       if (exp->inj.mode == INJECT_D)
       {
-        X = 5;
-        lls = Single_Axis_LLS(exp, X);  // X=5
-        g_results_ad0 = lls.ad0;
-        g_results_add = lls.add;
-        exp->LLS.ad0 = lls.ad0;
-        exp->LLS.add = lls.add;
+        X = S;
+        Single_Axis_LLS(exp, X, &exp->LLS.D);  // X=5
       }
       if (exp->inj.mode == INJECT_Q)
       {
-        X = 1;
-        lls = Single_Axis_LLS(exp, X);  // X=1
-        g_results_aq0 = lls.aq0;
-        g_results_aqq = lls.aqq;
-        exp->LLS.aq0 = lls.aq0;
-        exp->LLS.aqq = lls.aqq;
+        X = T;
+        Single_Axis_LLS(exp, X, &exp->LLS.Q);  // X=1
       }
       if (exp->inj.mode == INJECT_DQ)
       {
-        float adq = 0.0f;
-        if (exp->cq_Sxx > 1e-12f)
-        {
-          adq = exp->cq_Sxy / exp->cq_Sxx;
-        }
-        else
-        {
-          adq = -1.0f;  // 或标记失败 / 正则化
-        }
-
-        // J (残差平方和)
-        float Jd = exp->sum_eps_id2;
-        float Jq = exp->sum_eps_iq2;
-
-        // 计算 R^2
-
-        float SST_id =
-            exp->sum_id2 - (exp->sum_id * exp->sum_id) / (float)exp->count_id;  // sum (id - mean)^2
-        float R2_d = (SST_id > 0.0f) ? (1.0f - Jd / SST_id) : 0.0f;
-
-        float SST_iq = exp->sum_iq2 - (exp->sum_iq * exp->sum_iq) / (float)exp->count_iq;
-        float R2_q = (SST_iq > 0.0f) ? (1.0f - Jq / SST_iq) : 0.0f;
-
-        exp->LLS.adq = adq;
-        exp->LLS.DQ.J[0] = Jd;
-        exp->LLS.DQ.J[1] = Jq;
-        exp->LLS.DQ.R2[0] = R2_d;
-        exp->LLS.DQ.R2[1] = R2_q;
+        Cross_Axis_LLS(exp, &exp->LLS.DQ);  // (S=5,T=1,U=1,V=0)
       }
 
       exp->state = PENDING;
@@ -552,7 +371,7 @@ static bool Estimate_Rs(float Current, float* Voltage_out, float* Rs)
   return done_flag;
 }
 
-LLS_Result_t Single_Axis_LLS(FluxExperiment_t* exp, int exponent)
+void Single_Axis_LLS(FluxExperiment_t* exp, int exponent, Result_t* result)
 {
   float sum_x2 = 0.0f;
   float sum_xp = 0.0f;
@@ -560,7 +379,7 @@ LLS_Result_t Single_Axis_LLS(FluxExperiment_t* exp, int exponent)
   float sum_yx = 0.0f;
   float sum_yxp = 0.0f;
   float sum_y = 0.0f;
-  float sum_y2 = 0.0f;
+  // float sum_y2 = 0.0f;
   int N = exp->step_index;
 
   for (int i = 0; i < N; i++)
@@ -580,7 +399,7 @@ LLS_Result_t Single_Axis_LLS(FluxExperiment_t* exp, int exponent)
     sum_xp2 += xp * xp;
 
     sum_y += I;
-    sum_y2 += I * I;
+    // sum_y2 += I * I;
 
     sum_yx += psi * I;
     sum_yxp += xp * I;
@@ -597,63 +416,30 @@ LLS_Result_t Single_Axis_LLS(FluxExperiment_t* exp, int exponent)
   {
     float b0 = 0.0f, b1 = 0.0f;
 
-    if (exp->inj.mode == INJECT_D)
+    result->beta0 = b0 = (sum_xp2 * sum_yx - sum_xp * sum_yxp) / det;
+    result->beta1 = b1 = (sum_x2 * sum_yxp - sum_xp * sum_yx) / det;
+    for (int i = 0; i < N; i++)
     {
-      exp->LLS.ad0 = b0 = (sum_xp2 * sum_yx - sum_xp * sum_yxp) / det;
-      exp->LLS.add = b1 = (sum_x2 * sum_yxp - sum_xp * sum_yx) / det;
-      for (int i = 0; i < N; i++)
+      float psi = exp->results[i].avg_max_psi;
+      float I = exp->results[i].Imax_value;
+
+      float xp = 1.0f;
+      for (int k = 0; k < exponent + 1; k++)
       {
-        float psi = exp->results[i].avg_max_psi;
-        float I = exp->results[i].Imax_value;
-
-        float xp = 1.0f;
-        for (int k = 0; k < exponent + 1; k++)
-        {
-          xp *= psi;
-        }
-
-        float I_hat = b0 * psi + b1 * xp;
-        float err = I - I_hat;
-
-        ss_res += err * err;
-        float diff = I - mean_y;
-        ss_tot += diff * diff;
+        xp *= psi;
       }
 
-      exp->LLS.D.J = ss_res;
-      exp->LLS.D.R2 = (ss_tot > 1e-12f) ? (1.0f - ss_res / ss_tot) : 0.0f;
+      float I_hat = b0 * psi + b1 * xp;
+      float err = I - I_hat;
+
+      ss_res += err * err;
+      float diff = I - mean_y;
+      ss_tot += diff * diff;
     }
-    else if (exp->inj.mode == INJECT_Q)
-    {
-      exp->LLS.aq0 = b0 = (sum_xp2 * sum_yx - sum_xp * sum_yxp) / det;
-      exp->LLS.aqq = b1 = (sum_x2 * sum_yxp - sum_xp * sum_yx) / det;
-      for (int i = 0; i < N; i++)
-      {
-        float psi = exp->results[i].avg_max_psi;
-        float I = exp->results[i].Imax_value;
 
-        float xp = 1.0f;
-        for (int k = 0; k < exponent + 1; k++)
-        {
-          xp *= psi;
-        }
-
-        float I_hat = b0 * psi + b1 * xp;
-        float err = I - I_hat;
-
-        ss_res += err * err;
-        float diff = I - mean_y;
-        ss_tot += diff * diff;
-      }
-
-      exp->LLS.Q.J = ss_res;
-      exp->LLS.Q.R2 = (ss_tot > 1e-12f) ? (1.0f - ss_res / ss_tot) : 0.0f;
-    }
+    result->J = ss_res;
+    result->R2 = (ss_tot > 1e-12f) ? (1.0f - ss_res / ss_tot) : 0.0f;
   }
-
-  // 存入 exp->LLS，方便外部调用
-
-  return exp->LLS;
 }
 
 bool edge_detect(FluxExperiment_t* exp, float* Ud, float* Uq)
@@ -770,6 +556,201 @@ void square_wave_injector(FluxExperiment_t* exp, float Id, float Iq, float* Ud, 
   }
 }
 
+bool cal_single_psi(FluxExperiment_t* exp)
+{
+  bool D_Q_calculated = false;
+  int s_idx = exp->edge_idx[0];
+  int e_idx = exp->edge_idx[1];
+  // 检查样本数是否足够
+  if (s_idx <= e_idx + 1)
+  {
+    // 本次周期数据不足，重做一次采集（不计入 repeat_count）
+    exp->pos = 0;
+    exp->edge_count = 0;
+    // 重新开启注入以重试
+    exp->last_Vd = 0.0f;
+    exp->last_Vq = 0.0f;
+    D_Q_calculated = false;
+  }
+  else
+  {
+    // 选择要用的 psi 缓冲区：Q 注入用 psi_q，否则使用 psi_d（如果需要同时计算可再扩展）
+    float* psi_buf = (exp->inj.mode == INJECT_Q) ? exp->psi_q_buf : exp->psi_d_buf;
+
+    // ---- 计算去均值后的最大 psi ----
+    float sum = 0.0f;
+    int cnt = 0;
+    for (int i = s_idx; i < e_idx; ++i)
+    {
+      sum += psi_buf[i];
+      cnt++;
+    }
+    float mean = (cnt > 0) ? (sum / (float)cnt) : 0.0f;
+
+    float max_psi = -1e30f;
+    float I_at_max = 0.0f;
+
+    for (int i = s_idx; i < e_idx; ++i)
+    {
+      float psi_c = psi_buf[i] - mean;
+      if (psi_c > max_psi)
+      {
+        max_psi = psi_c;
+        // 取磁链峰值点对应的电流
+        if (exp->inj.mode == INJECT_D)
+        {
+          I_at_max = exp->Id_buf[i];
+        }
+        else if (exp->inj.mode == INJECT_Q)
+        {
+          I_at_max = exp->Iq_buf[i];
+        }
+      }
+
+      // 如果数据有效，累积；否则重试（不计入）
+      if (max_psi > -1e29f)
+      {
+        exp->sum_max_psi += max_psi;
+        exp->sum_max_I += I_at_max;  // 新增
+        exp->repeat_count++;
+        D_Q_calculated = true;
+      }
+      else
+      {
+        D_Q_calculated = false;
+      }
+    }
+  }
+  return D_Q_calculated;
+}
+
+bool cal_avg_max_psi(FluxExperiment_t* exp)
+{
+  bool calculated = false;
+  // ---- 判断是否已经达到重复次数 ----
+  if (exp->repeat_count < exp->repeat_times)
+  {
+    // 还需重复：为下一次注入做准备
+    calculated = false;
+    exp->pos = 0;
+    exp->edge_count = 0;
+  }
+  else
+  {
+    // 达到重复次数：计算平均并保存结果
+    float avg_psi = exp->sum_max_psi / (float)exp->repeat_times;
+    float avg_I = exp->sum_max_I / (float)exp->repeat_times;
+
+    exp->results[exp->step_index].Imax_value = avg_I;     // 现在是峰值点对应的电流
+    exp->results[exp->step_index].avg_max_psi = avg_psi;  // 峰值点磁链
+    exp->results[exp->step_index].cycles_used = exp->repeat_times;
+    // 临时
+    save_result(avg_I, avg_psi, exp->repeat_times);
+
+    exp->step_index++;
+
+    // 清零累积器，为下一 Imax 做准备（NEXT_I 也会重置 pos/edge_count）
+    exp->sum_max_psi = 0.0F;
+    exp->sum_max_I = 0.0F;
+    exp->repeat_count = 0;
+    calculated = true;
+  }
+  return calculated;
+}
+
+static inline bool cal_DQ_psi(FluxExperiment_t* exp)
+{
+  bool calculated = false;
+  // DQ 轴同时计算
+  float* psi_buf_d = exp->psi_d_buf;
+  float* psi_buf_q = exp->psi_q_buf;
+
+  // 计算 d 轴均值
+  float sum_d = 0.0f;
+  int cnt_d = 0;
+  for (int i = exp->edge_idx[0]; i < exp->edge_idx[1]; ++i)
+  {
+    sum_d += psi_buf_d[i];
+    cnt_d++;
+  }
+  float mean_d = (cnt_d > 0) ? (sum_d / (float)cnt_d) : 0.0f;
+
+  // 计算 q 轴均值
+  float sum_q = 0.0f;
+  int cnt_q = 0;
+  for (int i = exp->edge_idx[0]; i < exp->edge_idx[1]; ++i)
+  {
+    sum_q += psi_buf_q[i];
+    cnt_q++;
+  }
+  float mean_q = (cnt_q > 0) ? (sum_q / (float)cnt_q) : 0.0f;
+
+  for (int i = exp->edge_idx[0]; i < exp->edge_idx[1]; ++i)
+  {
+    psi_buf_d[i] -= mean_d;
+
+    psi_buf_q[i] -= mean_q;
+  }
+  process_cycle_for_dq_adq(exp, S);
+  // ---- 判断是否已经达到重复次数 ----
+  if (exp->repeat_count < exp->repeat_times)
+  {
+    // 还需重复：为下一次注入做准备
+    exp->pos = 0;
+    exp->edge_count = 0;
+    calculated = false;
+  }
+  else
+  {
+    calculated = true;
+  }
+  return calculated;
+}
+
+bool cal_next_current(FluxExperiment_t* exp)
+{
+  bool isenough = false;
+  int curI = (int)exp->inj.Imax;
+  int newI = 0;
+
+  if (exp->step_index == 0)
+  {
+    // 第一次，直接跳到 start_I
+    newI = exp->start_I;
+  }
+  else
+  {
+    // 后续按 step_dir 增减
+    newI = curI + exp->step_dir;
+  }
+
+  // 检查是否超出范围
+  bool finished = false;
+  if (exp->step_dir < 0)
+  {
+    if (newI < exp->final_I) finished = true;
+  }
+  else
+  {
+    if (newI > exp->final_I) finished = true;
+  }
+
+  if (finished || exp->step_index >= exp->max_steps)
+  {
+    isenough = true;
+  }
+  else
+  {
+    isenough = false;
+    exp->inj.Imax = (float)newI;
+    exp->pos = 0;
+    exp->edge_count = 0;
+    exp->state = INJECT_COLLECT;
+    // exp->inj.State = true;
+  }
+  return isenough;
+}
+
 void process_cycle_for_dq_adq(FluxExperiment_t* exp, int s)
 {
   for (int i = exp->edge_idx[0]; i < exp->edge_idx[1]; ++i)
@@ -788,8 +769,8 @@ void process_cycle_for_dq_adq(FluxExperiment_t* exp, int s)
     float psi_q_T1 = 1.0F;
     for (int k = 0; k < T + 1; ++k) psi_q_T1 *= psi_q;  // psi_q^(T+1)
 
-    float id_pred = exp->LLS.ad0 * psi_d + exp->LLS.add * psi_d_S1;
-    float iq_pred = exp->LLS.aq0 * psi_q + exp->LLS.aqq * psi_q_T1;
+    float id_pred = exp->LLS.D.beta0 * psi_d + exp->LLS.D.beta1 * psi_d_S1;
+    float iq_pred = exp->LLS.Q.beta0 * psi_q + exp->LLS.Q.beta1 * psi_q_T1;
 
     float id_res = id_s - id_pred;
     float iq_res = iq_s - iq_pred;
@@ -821,4 +802,36 @@ void process_cycle_for_dq_adq(FluxExperiment_t* exp, int s)
     exp->sum_eps_id2 += id_res * id_res;
     exp->sum_eps_iq2 += iq_res * iq_res;
   }
+}
+
+static inline void Cross_Axis_LLS(FluxExperiment_t* exp, ResultDQ_t* result)
+{
+  float adq = 0.0f;
+  if (exp->cq_Sxx > 1e-12f)
+  {
+    adq = exp->cq_Sxy / exp->cq_Sxx;
+  }
+  else
+  {
+    adq = -1.0f;  // 或标记失败 / 正则化
+  }
+
+  // J (残差平方和)
+  float Jd = exp->sum_eps_id2;
+  float Jq = exp->sum_eps_iq2;
+
+  // 计算 R^2
+
+  float SST_id =
+      exp->sum_id2 - (exp->sum_id * exp->sum_id) / (float)exp->count_id;  // sum (id - mean)^2
+  float R2_d = (SST_id > 0.0f) ? (1.0f - Jd / SST_id) : 0.0f;
+
+  float SST_iq = exp->sum_iq2 - (exp->sum_iq * exp->sum_iq) / (float)exp->count_iq;
+  float R2_q = (SST_iq > 0.0f) ? (1.0f - Jq / SST_iq) : 0.0f;
+
+  result->adq = adq;
+  result->J[0] = Jd;
+  result->J[1] = Jq;
+  result->R2[0] = R2_d;
+  result->R2[1] = R2_q;
 }
