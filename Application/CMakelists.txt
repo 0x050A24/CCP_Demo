@@ -5,6 +5,7 @@ set ( User_SOURCES
     #${CMAKE_CURRENT_SOURCE_DIR}/Src/injection.c
     ${CMAKE_CURRENT_SOURCE_DIR}/Src/foc.c
     ${CMAKE_CURRENT_SOURCE_DIR}/Src/identification.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/Src/MTPA.c
 )
 
 add_library ( User STATIC

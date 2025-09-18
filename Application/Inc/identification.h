@@ -18,7 +18,7 @@
 
 /* ----------公式系数------------------ */
 #define S 5
-#define T 1
+#define Tn 1
 #define U 1
 #define V 0
 
