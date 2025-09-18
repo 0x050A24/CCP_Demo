@@ -3,7 +3,7 @@
 #include <string.h>
 #include "math.h"
 #include "stdint.h"
-
+#include "MTPA.h"
 /* Estimate_Rs 与 SquareWaveGenerater 原型（你已有的实现） */
 static inline bool Estimate_Rs(float Current, float* Voltage_out, float* Rs);
 static inline void square_wave_injector(FluxExperiment_t* exp, float Id, float Iq, float* Ud,
@@ -231,7 +231,7 @@ void Experiment_Step(FluxExperiment_t* exp, float Id, float Iq, float* Ud, float
       }
       if (exp->inj.mode == INJECT_Q)
       {
-        X = T;
+        X = Tn;
         Single_Axis_LLS(exp, X, &exp->LLS.Q);  // X=1
       }
       if (exp->inj.mode == INJECT_DQ)
@@ -277,6 +277,8 @@ void Experiment_Step(FluxExperiment_t* exp, float Id, float Iq, float* Ud, float
     {
       *Ud = 0.0f;
       *Uq = 0.0f;
+    assign_parameters_from_LLS(exp->LLS);
+
       exp->Running = false;
       break;
     }
@@ -767,7 +769,7 @@ void process_cycle_for_dq_adq(FluxExperiment_t* exp, int s)
     float psi_d_S1 = 1.0F;
     for (int k = 0; k < s + 1; ++k) psi_d_S1 *= psi_d;  // psi_d^(S+1)
     float psi_q_T1 = 1.0F;
-    for (int k = 0; k < T + 1; ++k) psi_q_T1 *= psi_q;  // psi_q^(T+1)
+    for (int k = 0; k < Tn + 1; ++k) psi_q_T1 *= psi_q;  // psi_q^(T+1)
 
     float id_pred = exp->LLS.D.beta0 * psi_d + exp->LLS.D.beta1 * psi_d_S1;
     float iq_pred = exp->LLS.Q.beta0 * psi_q + exp->LLS.Q.beta1 * psi_q_T1;
@@ -834,4 +836,10 @@ static inline void Cross_Axis_LLS(FluxExperiment_t* exp, ResultDQ_t* result)
   result->J[1] = Jq;
   result->R2[0] = R2_d;
   result->R2[1] = R2_q;
+}
+void assign_parameters_from_LLS(LLS_Result_t res)
+{
+    a_d = res.D.beta0; b_d = res.D.beta1;
+    a_q = res.Q.beta0; b_q = res.Q.beta1;
+    c_coeff = res.DQ.adq; 
 }

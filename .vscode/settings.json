@@ -83,6 +83,17 @@
         "gd32f30x.h": "c",
         "cstring": "c",
         "variant": "c",
-        "cstdlib": "c"
+        "cstdlib": "c",
+        "compare": "c",
+        "limits": "c",
+        "new": "c",
+        "cmath": "c",
+        "type_traits": "c",
+        "atomic": "c",
+        "charconv": "c",
+        "optional": "c",
+        "ranges": "c",
+        "tuple": "c",
+        "vector": "c"
     },
 }

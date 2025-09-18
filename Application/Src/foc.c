@@ -2,7 +2,7 @@
 #include "identification.h"
 #include "hardware_interface.h"
 #include "position_sensor.h"
-
+#include <MTPA.h>
 Motor_Parameter_t Motor;
 FOC_Parameter_t FOC;
 VF_Parameter_t VF;
@@ -107,8 +107,24 @@ void FOC_Main(void)
       }
 
       FOC.Iq_ref = Speed_PID.output;  // Iq_ref = Speed_PID.output
-      FOC.Id_ref = ((MTPA.A * FOC.Iq_ref + MTPA.B) * FOC.Iq_ref + MTPA.C) * FOC.Iq_ref + MTPA.D;
+      //FOC.Id_ref = ((MTPA.A * FOC.Iq_ref + MTPA.B) * FOC.Iq_ref + MTPA.C) * FOC.Iq_ref + MTPA.D;
 
+      /*FOC.Iq_ref =IQtest;//test
+     IQtest+=0.0005;
+     if(IQtest>=IQtestMax){IQtest=IQtestMax;}*/
+    //FOC.Id_ref = ((MTPA.A * FOC.Iq_ref + MTPA.B) * FOC.Iq_ref + MTPA.C) * FOC.Iq_ref + MTPA.D;
+      float iq_meas = FOC.Iq_ref ;
+     if (FOC.Iq_ref>=0)
+        {
+        MTPA_update_ISR(iq_meas);
+        FOC.Id_ref = Id_mtpa;
+        }
+        else
+        {
+          MTPA_update_ISR(-iq_meas);
+          FOC.Id_ref = Id_mtpa;
+        }
+      // FOC.Id_ref = IQtest;
       PID_Controller(FOC.Id_ref, FOC.Id, &Id_PID);
       PID_Controller(FOC.Iq_ref, FOC.Iq, &Iq_PID);
 
