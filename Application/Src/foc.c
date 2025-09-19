@@ -155,7 +155,7 @@ void FOC_UpdateMainFrequency(float f, float Ts, float PWM_ARR)
 void Parameter_Init(void)
 {
   memset(&VF, 0, sizeof(VF_Parameter_t));
-  memset(&FOC, 0, sizeof(FOC_Parameter_t));
+  //memset(&FOC, 0, sizeof(FOC_Parameter_t));
   memset(&Id_PID, 0, sizeof(PID_Controller_t));
   memset(&Iq_PID, 0, sizeof(PID_Controller_t));
   memset(&Speed_PID, 0, sizeof(PID_Controller_t));
