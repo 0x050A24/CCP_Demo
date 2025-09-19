@@ -147,7 +147,7 @@ void USBD_LP_CAN0_RX0_IRQHandler(void)
 }
 uint32_t systick_cnt=0;
 float IQtest=0;
-float IQtestMax=13.0;
+float IQtestMax=13.0F;
 uint32_t systick_cnt1=0;
 void ADC0_1_IRQHandler(void)
 {

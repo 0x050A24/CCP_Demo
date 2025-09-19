@@ -1,6 +1,7 @@
 #include "MTPA.h"
-#include <string.h>
+
 #include <math.h>
+
 
 typedef struct { float psi_mid; float iq_meas; } MTPA_Req;
 static MTPA_Req    mtpa_req_mb;
@@ -9,7 +10,7 @@ static MTPA_Req    mtpa_req_mb;
 MTPA_Point MTPA_table[MAX_POINTS];
 int point_count = 0;
 float Id_mtpa = 0.0f;
-static float last_Iq_meas = 0.0; // 上一次测量的 Iq
+static float last_Iq_meas = 0.0F; // 上一次测量的 Iq
 static int stable_counter = 0;    // 稳定计数器
 
 // ==================== MTPA 求解函数(用户需实现) ====================
@@ -17,38 +18,38 @@ static int stable_counter = 0;    // 稳定计数器
 /*float a_d = 5.59756, b_d = 5.15426, m = 5.0;
 float a_q = 6.306, b_q = 171.571, n = 1.0;
 float c_coeff = 35.90, h = 1.0, j = 0.0;*/
-float extern a_d = 6.019, b_d = 4.3238, m = 5.0;
-float extern  a_q = 10.524, b_q = 128.6657, n = 1.0;
-float extern c_coeff = 62.6, h = 1.0, j = 0.0;
+float a_d = 6.019F, b_d = 4.3238F, m = 5.0F;
+float a_q = 10.524F, b_q = 128.6657F, n = 1.0F;
+float c_coeff = 62.6F, h = 1.0F, j = 0.0F;
 
 // ---------- 电流模型 (ψd, ψq → id, iq) ----------
 float calc_id(float psi_d, float psi_q) {
-    float term = a_d + b_d * pow(fabs(psi_d), m)
-                + (c_coeff / (j + 2.0)) * pow(fabs(psi_d), h) * pow(fabs(psi_q), j + 2.0);
+    float term = a_d + b_d * powf(fabsf(psi_d), m)
+                + (c_coeff / (j + 2.0F)) * powf(fabsf(psi_d), h) * powf(fabsf(psi_q), j + 2.0F);
     return term * psi_d;
 }
 
 float calc_iq(float psi_d, float psi_q) {
-    float term = a_q + b_q * pow(fabs(psi_q), n)
-                + (c_coeff / (h + 2.0)) * pow(fabs(psi_q), j) * pow(fabs(psi_d), h + 2.0);
+    float term = a_q + b_q * powf(fabsf(psi_q), n)
+                + (c_coeff / (h + 2.0F)) * powf(fabsf(psi_q), j) * powf(fabsf(psi_d), h + 2.0F);
     return term * psi_q;
 }
 
 // ---------- 转矩计算 ----------
 float calc_torque(float psi_d, float psi_q, float id, float iq) {
-    return 1.5 * POLE_PAIRS * (psi_d * iq - psi_q * id);
+    return 1.5F * POLE_PAIRS * (psi_d * iq - psi_q * id);
 }
 
 // ---------- 目标函数 J = T / Is ----------
 float objective(float psi, float theta) {
-    float psi_d = psi * cos(theta);
-    float psi_q = psi * sin(theta);
+    float psi_d = psi * COS(theta);
+    float psi_q = psi * SIN(theta);
 
     float id = calc_id(psi_d, psi_q);
     float iq = calc_iq(psi_d, psi_q);
 
     float Is =sqrt( id * id + iq * iq);
-    if (Is < 1e-6) return 0.0; // 避免除零
+    if (Is < 1e-6) return 0.0F; // 避免除零
 
     float T = calc_torque(psi_d, psi_q, id, iq);
     return T / Is;
@@ -56,8 +57,8 @@ float objective(float psi, float theta) {
 
 // ---------- 黄金分割搜索 MTPA ----------
 float MTPA_find_theta(float psi) {
-    float left = 0.0;
-    float right = M_PI / 2.0;
+    float left = 0.0F;
+    float right = M_PI / 2.0F;
 
     float c = right - (right - left) * GOLDEN_RATIO;
     float d = left + (right - left) * GOLDEN_RATIO;
@@ -81,7 +82,7 @@ float MTPA_find_theta(float psi) {
         }
     }
 
-    return 0.5 * (left + right); // 最优角
+    return 0.5F * (left + right); // 最优角
 }
 
 
@@ -92,8 +93,8 @@ MTPA_Point calc_MTPA_point(float PSI_s)
     MTPA_Point p;
     p.Psi_s = PSI_s;
     float theta_opt = MTPA_find_theta(PSI_s);
-    float psi_d = p.Psi_s * cos(theta_opt);
-    float psi_q = p.Psi_s * sin(theta_opt);
+    float psi_d = p.Psi_s * COS(theta_opt);
+    float psi_q = p.Psi_s * SIN(theta_opt);
     p.PSI_theta = theta_opt;
 
     float id = calc_id(psi_d, psi_q);
@@ -146,23 +147,23 @@ static MTPA_Point *active_tbl = tblA;  static int active_cnt = 0;   // ISR 只�
 static MTPA_Point *build_tbl  = tblB;  static int build_cnt  = 0;   // 主循环只写
 
 /*** 版本号：偶数=稳定；发布时先++(奇)，写指针，再++(偶) ***/
-static volatile uint32_t mtpa_seq = 0;
+static volatile uint16_t mtpa_seq = 0;
 
 /*** 给ISR的“一致快照” ***/
 static inline void mtpa_snapshot_for_isr(MTPA_Point **t, int *n){
-    uint32_t s1, s2;
+    uint16_t s1 = 0, s2 = 0;
     do {
-        s1 = mtpa_seq; __DMB();
+        s1 = mtpa_seq; __THREAD_FENCE();
         *t = active_tbl; *n = active_cnt;
-        __DMB(); s2 = mtpa_seq;
+        __THREAD_FENCE(); s2 = mtpa_seq;
     } while ((s1 != s2) || (s1 & 1U));   // 若发布中(奇数)或不一致，则重读
 }
 
 /*** 主循环发布（不关中断） ***/
 static inline void mtpa_publish_from_main(void){
-    mtpa_seq++; __DMB();                 // 进入发布（奇数）
+    mtpa_seq++; __THREAD_FENCE();                 // 进入发布（奇数）
     active_tbl = build_tbl; active_cnt = build_cnt;
-    __DMB(); mtpa_seq++; 
+    __THREAD_FENCE(); mtpa_seq++; 
     if(mtpa_seq>=60){mtpa_seq=0;}
                    // 发布完成（偶数）
     // 交换角色，清空 build 计数
@@ -273,7 +274,7 @@ void MTPA_init(float psi_min,float psi_1,float psi_2,float psi_3, float psi_mid,
 /*** —— 中断读取时的简易插值（只读 active 表） —— ***/
  void interp_IdIq_by_Iq(const MTPA_Point *T, int N, float iq_meas, float *Id_ref, float *Iq_ref){
     if (N<2){ *Id_ref=0; *Iq_ref=iq_meas; return; }
-    int i;
+    int i = 0;
     for (i=0;i<N-1;i++) if (iq_meas>=T[i].Iq && iq_meas<=T[i+1].Iq) break;
     if (i>=N-1) i=N-2;
     float w = (iq_meas - T[i].Iq) / (T[i+1].Iq - T[i].Iq + 1e-9f);
@@ -294,7 +295,7 @@ void MTPA_service_tick(void)
 
     // 取出请求并清零（不关中断，先读内容再清标志）
     float psi_mid = mtpa_req_mb.psi_mid;
-    __DMB(); mtpa_req_pending = 0;
+    __THREAD_FENCE(); mtpa_req_pending = 0;
 
     // 第一次进入时，把 active 拷到 build（只需做一次）
     static int cloned = 0;
@@ -311,7 +312,7 @@ void MTPA_service_tick(void)
 void MTPA_update_ISR(float Iq_meas)
 {
     // 取活动表的快照（不关中断）
-    MTPA_Point *T; int N; mtpa_snapshot_for_isr(&T, &N);
+    MTPA_Point *T = {0}; int N = 0; mtpa_snapshot_for_isr(&T, &N);
     if (N < 2) return;
 
     // 稳定性检测（照旧）
@@ -351,7 +352,7 @@ volatile int mtpa_req_pending = 0;
 void post_req_from_isr(float psi_mid, float iq_meas){
     mtpa_req_mb.psi_mid = psi_mid;
     mtpa_req_mb.iq_meas = iq_meas;
-    __DMB(); mtpa_req_pending = 1;   // 保证先写内容再置位
+    __THREAD_FENCE(); mtpa_req_pending = 1;   // 保证先写内容再置位
 }
 
 extern void mtpa_snapshot_for_isr(MTPA_Point **t, int *n);   // 来自 MTPA_table.c

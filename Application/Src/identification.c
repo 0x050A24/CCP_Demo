@@ -1,9 +1,10 @@
 #include "identification.h"
 #include <stdbool.h>
 #include <string.h>
+#include "MTPA.h"
 #include "math.h"
 #include "stdint.h"
-#include "MTPA.h"
+
 /* Estimate_Rs 与 SquareWaveGenerater 原型（你已有的实现） */
 static inline bool Estimate_Rs(float Current, float* Voltage_out, float* Rs);
 static inline void square_wave_injector(FluxExperiment_t* exp, float Id, float Iq, float* Ud,
@@ -107,10 +108,6 @@ void Experiment_Step(FluxExperiment_t* exp, float Id, float Iq, float* Ud, float
       float Voltage_out = 0.0f;
       float Rs_tmp = 0.0f;
 
-      // 直接把 Rs 估计电压输出到电机
-      *Ud = Voltage_out;
-      *Uq = 0.0f;
-
       if (Estimate_Rs(Id, &Voltage_out, &Rs_tmp))
       {
         // 保存 Rs
@@ -123,6 +120,9 @@ void Experiment_Step(FluxExperiment_t* exp, float Id, float Iq, float* Ud, float
         // exp->state = INJECT_COLLECT;
         exp->state = WAIT;
       }
+      // 直接把 Rs 估计电压输出到电机
+      *Ud = Voltage_out;
+      *Uq = 0.0f;
       break;
     }
 
@@ -150,6 +150,8 @@ void Experiment_Step(FluxExperiment_t* exp, float Id, float Iq, float* Ud, float
           exp->inj.State = false;
           exp->inj.Vd = 0.0F;
           exp->inj.Vq = 0.0F;
+          *Ud = exp->inj.Vd;
+          *Uq = exp->inj.Vq;
         }
       }
       exp->last_Vd = *Ud;
@@ -160,8 +162,6 @@ void Experiment_Step(FluxExperiment_t* exp, float Id, float Iq, float* Ud, float
     case PROCESS:
     {
       exp->inj.State = false;
-      *Ud = exp->inj.Vd = 0.0F;
-      *Uq = exp->inj.Vq = 0.0F;
       if (exp->edge_count < 2)
       {
         // 不应发生（INJECT_COLLECT 已经保证 >= wait_edges+3 才进入 PROCESS）
@@ -226,7 +226,7 @@ void Experiment_Step(FluxExperiment_t* exp, float Id, float Iq, float* Ud, float
       uint8_t X = 0;
       if (exp->inj.mode == INJECT_D)
       {
-        X = S;
+        X = Sm;
         Single_Axis_LLS(exp, X, &exp->LLS.D);  // X=5
       }
       if (exp->inj.mode == INJECT_Q)
@@ -239,14 +239,15 @@ void Experiment_Step(FluxExperiment_t* exp, float Id, float Iq, float* Ud, float
         Cross_Axis_LLS(exp, &exp->LLS.DQ);  // (S=5,T=1,U=1,V=0)
       }
 
-      exp->state = PENDING;
+      //exp->state = PENDING;
+
       break;
     }
     case PENDING:
     {
       // 初始化方波注入器
-      exp->inj.Ud_amp = 0.0F;
-      exp->inj.Uq_amp = 0.0F;
+      // exp->inj.Ud_amp = 0.0F;
+      // exp->inj.Uq_amp = 0.0F;
       exp->inj.Imax = 0.0F;
       exp->inj.State = false;
       exp->inj.inj_state_d = 0;
@@ -277,7 +278,7 @@ void Experiment_Step(FluxExperiment_t* exp, float Id, float Iq, float* Ud, float
     {
       *Ud = 0.0f;
       *Uq = 0.0f;
-    assign_parameters_from_LLS(exp->LLS);
+      assign_parameters_from_LLS(exp->LLS);
 
       exp->Running = false;
       break;
@@ -450,11 +451,11 @@ bool edge_detect(FluxExperiment_t* exp, float* Ud, float* Uq)
 
   if (exp->inj.mode == INJECT_D || exp->inj.mode == INJECT_DQ)
   {
-    if (*Ud == -exp->last_Vd) edge_detected = true;
+    if (*Ud == -exp->last_Vd && *Ud != 0.0F) edge_detected = true;
   }
   if (exp->inj.mode == INJECT_Q)
   {
-    if (*Uq == -exp->last_Vq) edge_detected = true;
+    if (*Uq == -exp->last_Vq && *Uq != 0.0F) edge_detected = true;
   }
 
   return edge_detected;
@@ -564,7 +565,7 @@ bool cal_single_psi(FluxExperiment_t* exp)
   int s_idx = exp->edge_idx[0];
   int e_idx = exp->edge_idx[1];
   // 检查样本数是否足够
-  if (s_idx <= e_idx + 1)
+  if (e_idx <= s_idx + 1)
   {
     // 本次周期数据不足，重做一次采集（不计入 repeat_count）
     exp->pos = 0;
@@ -619,6 +620,8 @@ bool cal_single_psi(FluxExperiment_t* exp)
       }
       else
       {
+        exp->pos = 0;
+        exp->edge_count = 0;
         D_Q_calculated = false;
       }
     }
@@ -693,7 +696,7 @@ static inline bool cal_DQ_psi(FluxExperiment_t* exp)
 
     psi_buf_q[i] -= mean_q;
   }
-  process_cycle_for_dq_adq(exp, S);
+  process_cycle_for_dq_adq(exp, Sm);
   // ---- 判断是否已经达到重复次数 ----
   if (exp->repeat_count < exp->repeat_times)
   {
@@ -839,7 +842,9 @@ static inline void Cross_Axis_LLS(FluxExperiment_t* exp, ResultDQ_t* result)
 }
 void assign_parameters_from_LLS(LLS_Result_t res)
 {
-    a_d = res.D.beta0; b_d = res.D.beta1;
-    a_q = res.Q.beta0; b_q = res.Q.beta1;
-    c_coeff = res.DQ.adq; 
+  a_d = res.D.beta0;
+  b_d = res.D.beta1;
+  a_q = res.Q.beta0;
+  b_q = res.Q.beta1;
+  c_coeff = res.DQ.adq;
 }

@@ -4,16 +4,17 @@
 #include <stdint.h>
 #include <stdatomic.h>
 #include <identification.h>
-#ifndef __DMB
-  #define __DMB()  atomic_thread_fence(memory_order_seq_cst)
+#ifndef __THREAD_FENCE
+  #define __THREAD_FENCE()  atomic_thread_fence(memory_order_seq_cst)
 #endif
-
-
+#include "arm_math.h"/* CMSIS-DSP math */ // IWYU pragma: export
+#define COS(x) arm_cos_f32(x)
+#define SIN(x) arm_sin_f32(x)
 // ==================== 参数定义 ====================
 #define MAX_POINTS    14       // 表最多存 10 个点 (8 固定 + 2 动态)
-#define DELTA_I    0.5  // Iq 区间收敛阈值
-#define delta_iq      0.1    // Iq 收敛阈值 (A)
-#define DELTA_STABLE  0.1    // 电流稳定阈值 (A)
+#define DELTA_I    0.5F  // Iq 区间收敛阈值
+#define delta_iq      0.1F    // Iq 收敛阈值 (A)
+#define DELTA_STABLE  0.1F    // 电流稳定阈值 (A)
 #define STABLE_COUNT  10      // 连续稳定采样次数，才更新
 
 // ==================== 数据结构 ====================
@@ -47,8 +48,8 @@ MTPA_Point calc_MTPA_point(float Psi_s);
 
 
 // ---------- 参数定义 ----------
-#define DELTA_THETA 0.02     // 黄金分割法收敛精度
-#define GOLDEN_RATIO 0.618
+#define DELTA_THETA 0.02F     // 黄金分割法收敛精度
+#define GOLDEN_RATIO 0.618F
 #define POLE_PAIRS 2         // 极对数 (示例)
 
 // 拟合模型参数（需要根据实验拟合得到）

@@ -17,7 +17,7 @@
 #define REPEAT_TIMES 3       // 每个 Imax 重复 3 次
 
 /* ----------公式系数------------------ */
-#define S 5
+#define Sm 5
 #define Tn 1
 #define U 1
 #define V 0
