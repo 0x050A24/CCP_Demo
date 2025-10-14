@@ -135,8 +135,8 @@ void FOC_Main(void)
       // }
       
      float Iq_meas = FOC.Iq_ref; // 从传感器或速度环估计得到的 Iq 目标
-     float Id_mtpa;
-     float Iq_out;
+     float Id_mtpa = 0.0F;
+     float Iq_out = 0.0F;
 
 
       

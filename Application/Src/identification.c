@@ -23,7 +23,8 @@ volatile uint32_t g_results_cycles[MAX_STEPS];
 // 当前步索引
 volatile uint32_t g_result_index = 0;
 
-void Get_Identification_Results(FluxExperiment_t* exp, float* ad0, float* add, float* aq0, float* aqq, float* adq)
+void Get_Identification_Results(FluxExperiment_t* exp, float* ad0, float* add, float* aq0,
+                                float* aqq, float* adq)
 {
   if (ad0) *ad0 = exp->LLS.ad0;
   if (add) *add = exp->LLS.add;
@@ -240,7 +241,7 @@ void Experiment_Step(FluxExperiment_t* exp, float Id, float Iq, float* Ud, float
 
           if (exp->inj.mode == INJECT_DQ)
           {
-            exp->repeat_count ++;
+            exp->repeat_count++;
           }
         }
         else
@@ -763,8 +764,16 @@ static void Compute_SingleAxis_SSR_R2(FluxExperiment_t* exp, int exponent, int a
   int N = exp->step_index;
   if (N <= 0)
   {
-    if (axis == 0) { exp->LLS.DQ.J[0] = -1.0f; exp->LLS.DQ.R2[0] = -1.0f; }
-    else           { exp->LLS.DQ.J[1] = -1.0f; exp->LLS.DQ.R2[1] = -1.0f; }
+    if (axis == 0)
+    {
+      exp->LLS.DQ.J[0] = -1.0f;
+      exp->LLS.DQ.R2[0] = -1.0f;
+    }
+    else
+    {
+      exp->LLS.DQ.J[1] = -1.0f;
+      exp->LLS.DQ.R2[1] = -1.0f;
+    }
     return;
   }
 
@@ -778,14 +787,20 @@ static void Compute_SingleAxis_SSR_R2(FluxExperiment_t* exp, int exponent, int a
   for (int i = 0; i < N; ++i)
   {
     double psi = (double)exp->results[i].avg_max_psi;
-    double I   = (double)exp->results[i].Imax_value;
+    double I = (double)exp->results[i].Imax_value;
 
     double xp = 1.0;
     for (int k = 0; k < (exponent + 1); ++k) xp *= psi;
 
     double I_pred = 0.0;
-    if (axis == 0) I_pred = (double)exp->LLS.ad0 * psi + (double)exp->LLS.add * xp;
-    else            I_pred = (double)exp->LLS.aq0 * psi + (double)exp->LLS.aqq * xp;
+    if (axis == 0)
+    {
+      I_pred = (double)exp->LLS.ad0 * psi + (double)exp->LLS.add * xp;
+    }
+    else
+    {
+      I_pred = (double)exp->LLS.aq0 * psi + (double)exp->LLS.aqq * xp;
+    }
 
     double err = I - I_pred;
     SSR += err * err;
@@ -795,13 +810,22 @@ static void Compute_SingleAxis_SSR_R2(FluxExperiment_t* exp, int exponent, int a
   }
 
   float R2 = 0.0f;
-  if (SST > 0.0) {
+  if (SST > 0.0)
+  {
     double r2 = 1.0 - (SSR / SST);
     if (r2 > 1.0) r2 = 1.0;
     if (r2 < -1.0) r2 = -1.0;
     R2 = (float)r2;
   }
 
-  if (axis == 0) { exp->LLS.DQ.J[0] = (float)SSR; exp->LLS.DQ.R2[0] = R2; }
-  else           { exp->LLS.DQ.J[1] = (float)SSR; exp->LLS.DQ.R2[1] = R2; }
+  if (axis == 0)
+  {
+    exp->LLS.DQ.J[0] = (float)SSR;
+    exp->LLS.DQ.R2[0] = R2;
+  }
+  else
+  {
+    exp->LLS.DQ.J[1] = (float)SSR;
+    exp->LLS.DQ.R2[1] = R2;
+  }
 }
