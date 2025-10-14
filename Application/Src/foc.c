@@ -1,5 +1,6 @@
 #include "foc.h"
 #include "MTPA.h"
+#include "identification.h"
 #include "hardware_interface.h"
 #include "position_sensor.h"
 
@@ -46,8 +47,15 @@ void FOC_Main(void)
     {
       Parameter_Init();
       FOC.Mode = IDLE;
-
       Experiment_Init(&Experiment, FOC.Ts, 512, 2, 20, 2, 10, 1, 200);
+      MTPA_build_table(mtpa_table, MTPA_TABLE_POINTS, 0.0f, 50.0f);  /* T 从 0 到 50, 共 51 点 */
+      if (Experiment.Complete == true)
+      {
+      float ad0 = 0.0F, add = 0.0F, aq0 = 0.0F, aqq = 0.0F, adq = 0.0F;
+      Get_Identification_Results(&Experiment, &ad0, &add, &aq0, &aqq, &adq);
+      MTPA_Get_Parameter(ad0, add, aq0, aqq, adq);
+      MTPA_build_table(mtpa_table, MTPA_TABLE_POINTS, 0.0f, 50.0f);  /* T 从 0 到 50, 共 51 点 */
+      }
       break;
     }
     case IDLE:
@@ -107,7 +115,44 @@ void FOC_Main(void)
       }
 
       FOC.Iq_ref = Speed_PID.output;  // Iq_ref = Speed_PID.output
-      FOC.Id_ref = ((MTPA.A * FOC.Iq_ref + MTPA.B) * FOC.Iq_ref + MTPA.C) * FOC.Iq_ref + MTPA.D;
+      // FOC.Iq_ref = IQtest;
+      // IQtest=IQtest+0.0001;
+      // if(IQtest>IQtestMax) IQtest=0;
+
+
+      // if(FOC.Iq_ref>0)
+      // {float x1=FOC.Iq_ref;
+      // float x2=x1*x1;
+      // float x3=x2*x1;float x4=x3*x1;
+      // FOC.Id_ref = -0.000005113*x4+ 0.00056307*x3-0.022613*x2+0.74113*x1+0.58913; // MTPA
+      // }
+      // else
+      // {float x1=-FOC.Iq_ref;
+      // float x2=x1*x1; float x3=x2*x1;float x4=x3*x1;
+      // FOC.Id_ref = -0.000005113*x4+ 0.00056307*x3-0.022613*x2+0.74113*x1+0.58913; // MTPA
+      // }
+      
+     float Iq_meas = FOC.Iq_ref; // 从传感器或速度环估计得到的 Iq 目标
+     float Id_mtpa;
+     float Iq_out;
+
+
+      
+     if (FOC.Iq_ref>=0)
+        {
+        MTPA_interp_by_Iq(mtpa_table, MTPA_TABLE_POINTS, Iq_meas, &Id_mtpa, &Iq_out);
+        FOC.Id_ref = Id_mtpa;
+        }
+        else
+        {
+           MTPA_interp_by_Iq(mtpa_table, MTPA_TABLE_POINTS, -Iq_meas, &Id_mtpa, &Iq_out);
+          FOC.Id_ref = Id_mtpa;
+        }
+      // FOC.Id_ref = IQtest;
+      // if(FOC.Iq_ref>0)
+      //   {FOC.Id_ref =FOC.Iq_ref;} // 限制 Id_ref <= 0
+      // else 
+      //   {FOC.Id_ref = -FOC.Iq_ref;}
 
       PID_Controller(FOC.Id_ref, FOC.Id, &Id_PID);
       PID_Controller(FOC.Iq_ref, FOC.Iq, &Iq_PID);
@@ -141,6 +186,7 @@ void FOC_Main(void)
       if (STOP == 0)
       {
         Experiment_Step(&Experiment, FOC.Id, FOC.Iq, &FOC.Ud_ref, &FOC.Uq_ref);
+        
       }
 
       break;
@@ -201,8 +247,8 @@ void Parameter_Init(void)
 #ifdef Encoder_Position
   theta_factor = M_2PI / (float)(Motor.Position_Scale + 1);
 #endif
-  Speed_PID.Kp = 0.0F;
-  Speed_PID.Ki = 0.0F;
+  Speed_PID.Kp = 0.019F;
+  Speed_PID.Ki = 0.06F;
   Speed_PID.Kd = 0.0F;
   Speed_PID.MaxOutput = 0.7F * FOC.I_Max;  // Maximum Iq
   Speed_PID.MinOutput = -0.7F * FOC.I_Max;
@@ -212,7 +258,7 @@ void Parameter_Init(void)
   Speed_PID.output = 0.0F;
   Speed_PID.Ts = 10 * FOC.Ts;
 
-  Speed_Ramp.slope = 50.0F;  // limit to 50 rpm/s
+  Speed_Ramp.slope = 250.0F;  // limit to 50 rpm/s
   Speed_Ramp.limit_min = -1800.0F;
   Speed_Ramp.limit_max = 1800.0F;
   Speed_Ramp.value = 0.0F;
@@ -222,9 +268,9 @@ void Parameter_Init(void)
   Id_PID.Kp = 73.8274273F;
   Id_PID.Ki = 408.40704496F;
   Id_PID.Kd = 0.0F;
-  Id_PID.MaxOutput = 50.0F;  // Maximum Udc/sqrt(3)
-  Id_PID.MinOutput = -50.0F;
-  Id_PID.IntegralLimit = 50.0F;
+  Id_PID.MaxOutput = 300.0F;  // Maximum Udc/sqrt(3)
+  Id_PID.MinOutput = -300.0F;
+  Id_PID.IntegralLimit = 300.0F;
   Id_PID.previous_error = 0.0F;
   Id_PID.integral = 0.0F;
   Id_PID.output = 0.0F;
@@ -233,9 +279,9 @@ void Parameter_Init(void)
   Iq_PID.Kp = 27.646015F;
   Iq_PID.Ki = 408.40704496F;
   Iq_PID.Kd = 0.0F;
-  Iq_PID.MaxOutput = 50.0F;
-  Iq_PID.MinOutput = -50.0F;
-  Iq_PID.IntegralLimit = 50.0F;
+  Iq_PID.MaxOutput = 300.0F;
+  Iq_PID.MinOutput = -300.0F;
+  Iq_PID.IntegralLimit = 300.0F;
   Iq_PID.previous_error = 0.0F;
   Iq_PID.integral = 0.0F;
   Iq_PID.output = 0.0F;

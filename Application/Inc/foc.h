@@ -94,5 +94,8 @@ static inline void FOC_UpdateMaxCurrent(float I_Max)
 {
     FOC.I_Max = I_Max;
 }
-
+extern uint32_t systick_cnt;
+extern float IQtest;
+ extern float IQtestMax;
+extern uint32_t systick_cnt1;
 #endif /* _FOC_H_ */

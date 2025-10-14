@@ -10,6 +10,7 @@
 #include "tim.h"
 #include "usart.h"
 
+
 volatile uint32_t DWT_Count = 0;
 
 bool pin = false;
@@ -45,6 +46,9 @@ int main(void)
   EXIT_Config();
   nvic_config();
   COM_ProtocolInit();
+  //extern MTPA_Point mtpa_table[MTPA_TABLE_POINTS];
+  
+
   while (1)
   {
     COM_CANProtocol();
@@ -52,7 +56,7 @@ int main(void)
     // COM_DAQProtocol(systick_ms); Use CCP DAQ may cause PiSnoop display offline
     Peripheral_TemperatureProtect();
     Peripheral_GateState();
-
+    
     pin = gpio_input_bit_get(GPIOE, GPIO_PIN_15);
     // DWT_Count = DWT->CYCCNT; // 读取DWT计数器
   }
