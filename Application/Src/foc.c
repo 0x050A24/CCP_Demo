@@ -47,7 +47,6 @@ void FOC_Main(void)
     {
       Parameter_Init();
       FOC.Mode = IDLE;
-      Experiment_Init(&Experiment, FOC.Ts, 512, 2, 20, 2, 10, 1, 200);
       MTPA_build_table(mtpa_table, MTPA_TABLE_POINTS, 0.0f, 50.0f);  /* T 从 0 到 50, 共 51 点 */
       if (Experiment.Complete == true)
       {
@@ -56,6 +55,9 @@ void FOC_Main(void)
       MTPA_Get_Parameter(ad0, add, aq0, aqq, adq);
       MTPA_build_table(mtpa_table, MTPA_TABLE_POINTS, 0.0f, 50.0f);  /* T 从 0 到 50, 共 51 点 */
       }
+      Experiment_Init(&Experiment, FOC.Ts, 512, 2, 20, 2, 10, 1, 200);
+      
+
       break;
     }
     case IDLE:
@@ -234,7 +236,7 @@ void Parameter_Init(void)
   Motor.Position_Scale = 10000 - 1;
   Motor.Resolver_Pn = 1.0F;
   Motor.inv_MotorPn = 1.0F / 2.0F;  // Pn
-  Motor.Position_Offset = 107.0F;
+  Motor.Position_Offset = 4260.0F;
 
   MTPA.A = 0.00061141F;
   MTPA.B = -0.014627F;

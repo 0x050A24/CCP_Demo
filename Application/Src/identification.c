@@ -8,6 +8,7 @@
 static inline bool Estimate_Rs(float Current, float* Voltage_out, float* Rs);
 static LLS_Result_t Single_Axis_LLS(FluxExperiment_t* exp, int exponent);
 static void process_cycle_for_dq_adq(FluxExperiment_t* exp, int s);
+static void Compute_SingleAxis_SSR_R2(FluxExperiment_t* exp, int exponent, int axis);
 
 /* 结果结构：每个 Imax 只保存最终的 avg_max_psi（和 Imax 值） */
 
@@ -477,6 +478,7 @@ void Experiment_Step(FluxExperiment_t* exp, float Id, float Iq, float* Ud, float
         g_results_add = lls.add;
         exp->LLS.ad0 = lls.ad0;
         exp->LLS.add = lls.add;
+        Compute_SingleAxis_SSR_R2(exp, X, 0);  // 计算 D 轴的 SSR 和 R^2
       }
       if (exp->inj.mode == INJECT_Q)
       {
@@ -486,6 +488,7 @@ void Experiment_Step(FluxExperiment_t* exp, float Id, float Iq, float* Ud, float
         g_results_aqq = lls.aqq;
         exp->LLS.aq0 = lls.aq0;
         exp->LLS.aqq = lls.aqq;
+        Compute_SingleAxis_SSR_R2(exp, X, 1);  // 计算 Q 轴的 SSR 和 R^2
       }
       if (exp->inj.mode == INJECT_DQ)
       {
@@ -752,4 +755,53 @@ void process_cycle_for_dq_adq(FluxExperiment_t* exp, int s)
     exp->sum_eps_id2 += id_res * id_res;
     exp->sum_eps_iq2 += iq_res * iq_res;
   }
+}
+
+static void Compute_SingleAxis_SSR_R2(FluxExperiment_t* exp, int exponent, int axis)
+{
+  if (!exp) return;
+  int N = exp->step_index;
+  if (N <= 0)
+  {
+    if (axis == 0) { exp->LLS.DQ.J[0] = -1.0f; exp->LLS.DQ.R2[0] = -1.0f; }
+    else           { exp->LLS.DQ.J[1] = -1.0f; exp->LLS.DQ.R2[1] = -1.0f; }
+    return;
+  }
+
+  double sumI = 0.0;
+  for (int i = 0; i < N; ++i) sumI += (double)exp->results[i].Imax_value;
+  double meanI = sumI / (double)N;
+
+  double SSR = 0.0;
+  double SST = 0.0;
+
+  for (int i = 0; i < N; ++i)
+  {
+    double psi = (double)exp->results[i].avg_max_psi;
+    double I   = (double)exp->results[i].Imax_value;
+
+    double xp = 1.0;
+    for (int k = 0; k < (exponent + 1); ++k) xp *= psi;
+
+    double I_pred = 0.0;
+    if (axis == 0) I_pred = (double)exp->LLS.ad0 * psi + (double)exp->LLS.add * xp;
+    else            I_pred = (double)exp->LLS.aq0 * psi + (double)exp->LLS.aqq * xp;
+
+    double err = I - I_pred;
+    SSR += err * err;
+
+    double dev = I - meanI;
+    SST += dev * dev;
+  }
+
+  float R2 = 0.0f;
+  if (SST > 0.0) {
+    double r2 = 1.0 - (SSR / SST);
+    if (r2 > 1.0) r2 = 1.0;
+    if (r2 < -1.0) r2 = -1.0;
+    R2 = (float)r2;
+  }
+
+  if (axis == 0) { exp->LLS.DQ.J[0] = (float)SSR; exp->LLS.DQ.R2[0] = R2; }
+  else           { exp->LLS.DQ.J[1] = (float)SSR; exp->LLS.DQ.R2[1] = R2; }
 }
