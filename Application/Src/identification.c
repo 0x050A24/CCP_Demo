@@ -738,13 +738,13 @@ static void Compute_SingleAxis_SSR_R2(FluxExperiment_t* exp, int exponent, int a
   {
     if (axis == 0)
     {
-      exp->LLS.DQ.J[0] = -1.0f;
-      exp->LLS.DQ.R2[0] = -1.0f;
+      exp->LLS.D.J = -1.0f;
+      exp->LLS.D.R2 = -1.0f;
     }
     else
     {
-      exp->LLS.DQ.J[1] = -1.0f;
-      exp->LLS.DQ.R2[1] = -1.0f;
+      exp->LLS.Q.J = -1.0f;
+      exp->LLS.Q.R2 = -1.0f;
     }
     return;
   }
@@ -792,12 +792,12 @@ static void Compute_SingleAxis_SSR_R2(FluxExperiment_t* exp, int exponent, int a
 
   if (axis == 0)
   {
-    exp->LLS.DQ.J[0] = (float)SSR;
-    exp->LLS.DQ.R2[0] = R2;
+    exp->LLS.D.J = (float)SSR;
+    exp->LLS.D.R2 = R2;
   }
   else
   {
-    exp->LLS.DQ.J[1] = (float)SSR;
-    exp->LLS.DQ.R2[1] = R2;
+    exp->LLS.Q.J = (float)SSR;
+    exp->LLS.D.R2 = R2;
   }
 }

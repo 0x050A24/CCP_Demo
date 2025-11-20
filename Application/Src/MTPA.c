@@ -222,14 +222,14 @@ bool MTPA_compute_for_T(float T_req, MTPA_Point* out_p)
     if (!out_p)
         return false;
 
-    /* 特殊处理：T_req == 0 要求 Iq=0, Id=0.5 按题目要求 */
+    /* 特殊处理：T_req == 0 要求 Iq=0, Id=0.5 按要求 */
     if (T_req <= 0.0f)
     {
         out_p->T_req = 0.0f;
         out_p->Psi_s = 0.0f; /* 可以置 0 或者最小 */
         out_p->gamma = 0.0f;
         out_p->Id
-            = 0.5f; /* 特定规定：辨识初始位置时，需要恒定小D轴电流，激发磁阻电机的突极特性 */
+            = 1.0f; /* 特定规定：辨识初始位置时，需要恒定小D轴电流，激发磁阻电机的突极特性 */
         out_p->Iq    = 0.0f;
         out_p->valid = true;
         return true;
@@ -394,10 +394,10 @@ void MTPA_build_table(MTPA_Point table[],
             table[k].T_req = 0.0f;
             table[k].Psi_s = 0.0f;
             table[k].gamma = 0.0f;
-            table[k].Id    = 0.5f;
+            table[k].Id    = 1.0f;
             table[k].Iq    = 0.0f;
-            table[k].Ld    = 0.25f;
-            table[k].Lq    = 0.09f;
+            table[k].Ld    = 0.185f;
+            table[k].Lq    = 0.06f;
             table[k].valid = true;
         }
         else

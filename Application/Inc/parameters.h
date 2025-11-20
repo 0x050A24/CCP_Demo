@@ -99,7 +99,7 @@
 /*********************************************************************/
 /* 电压保护参数 */
 #define PROTECT_VOLTAGE_RATE        560.0F /* 额定电压：560V */
-#define PROTECT_VOLTAGE_FLUCTUATION 60.0F  /* 允许电压波动：±60V */
+#define PROTECT_VOLTAGE_FLUCTUATION 160.0F  /* 允许电压波动：±60V */
 
 /* 电流和温度保护参数 */
 #define PROTECT_CURRENT_MAX 30.0F /* 最大电流限制：30A */
@@ -115,7 +115,7 @@
 #define RAMP_SPEED_TIME      (SPEED_LOOP_TIME) /* 转速环采样周期 */
 
 /* 转速环PID参数配置 */
-#define PID_SPEED_LOOP_KP 0.018F /* 转速环比例系数 */
+#define PID_SPEED_LOOP_KP 0.016F /* 转速环比例系数 */
 #define PID_SPEED_LOOP_KI 0.060F /* 转速环积分系数 */
 #define PID_SPEED_LOOP_KD 0.00F  /* 转速环微分系数 */
 
@@ -133,7 +133,7 @@
 #define PID_CURRENT_D_LOOP_KD 0.00F         /* d轴微分系数 */
 
 /* d轴输出限制 */
-#define PID_CURRENT_D_LOOP_MAX_OUTPUT 200.0F /* 最大输出电压：Udc/√3 */
+#define PID_CURRENT_D_LOOP_MAX_OUTPUT 300.0F /* 最大输出电压：Udc/√3 */
 #define PID_CURRENT_D_LOOP_MIN_OUTPUT \
     (-1.0F * PID_CURRENT_D_LOOP_MAX_OUTPUT)
 #define PID_CURRENT_D_LOOP_INTEGRAL_LIMIT \
@@ -146,7 +146,7 @@
 #define PID_CURRENT_Q_LOOP_KD 0.00F         /* q轴微分系数 */
 
 /* q轴输出限制 */
-#define PID_CURRENT_Q_LOOP_MAX_OUTPUT 350.0F /* 最大输出电压：Udc/√3 */
+#define PID_CURRENT_Q_LOOP_MAX_OUTPUT 400.0F /* 最大输出电压：Udc/√3 */
 #define PID_CURRENT_Q_LOOP_MIN_OUTPUT \
     (-1.0F * PID_CURRENT_Q_LOOP_MAX_OUTPUT)
 #define PID_CURRENT_Q_LOOP_INTEGRAL_LIMIT \
@@ -164,7 +164,7 @@
 #define SENSORLESS_PLL_KP         50.0F  /* PLL比例系数 */
 #define SENSORLESS_PLL_KI         625.0F /* PLL积分系数 */
 #define SENSORLESS_PLL_KD         0.0F   /* PLL微分系数 */
-#define SENSORLESS_PLL_MAX_OUTPUT 500.0F /* PLL最大输出 */
+#define SENSORLESS_PLL_MAX_OUTPUT 700.0F /* PLL最大输出 */
 #define SENSORLESS_PLL_MIN_OUTPUT \
     (-1 * SENSORLESS_PLL_MAX_OUTPUT) /* PLL最小输出 */
 #define SENSORLESS_PLL_INTEGRAL_LIMIT \
@@ -193,7 +193,7 @@
 
 /* LESO参数 */
 #define LESO_WC_GAIN 8.0F    /* 观测器带宽系数 */
-#define LESO_WC_MAX  4000.0F /* 观测器带宽最大值 */
+#define LESO_WC_MAX  4200.0F /* 观测器带宽最大值 */
 #define LESO_WC_MIN  600.0F  /* 观测器带宽最小值 */
 
 /* 滑模观测器PLL跟踪器参数 */
@@ -213,7 +213,7 @@
 /*********************************************************************/
 /*                        Buffer参数配置                            */
 /*********************************************************************/
-#define BUFFER_CAPACITY  9U /* 默认缓冲区容量 */
+#define BUFFER_CAPACITY  10U /* 默认缓冲区容量 */
 #define BUFFER_PRESCALER 1U /* 默认缓冲区预分频器 */
 
 #endif

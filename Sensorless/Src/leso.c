@@ -104,8 +104,17 @@ void Leso_Set_Inductor(Park_t inductance)
     float  leso_InvLq = 1.0F / leso_Lq;
     Park_t Idq        = ParkTransform(Leso_Current, Leso_Theta);
     Idq.d             = Idq.d <= 0.5F ? 0.5F : Idq.d;
-    float temp        = (leso_Ld - leso_Lq) / leso_Lq * Idq.d;
-    SQRT(temp, &Leso_Factor);
+    // float temp        = (leso_Ld - leso_Lq) / leso_Lq * Idq.d;
+    // SQRT(temp, &Leso_Factor);
+    // if (Leso_Factor < 1.4F)
+    // {
+    //     Leso_Factor = 1.4F;
+    // }
+    // if(Leso_Factor > 1.9F)
+    // {
+    //     Leso_Factor = 1.9F;
+    // }
+    Leso_Factor = 1.9F;
 }
 
 void Leso_Set_SpeedFilter(float cutoff_freq, float sample_freq)

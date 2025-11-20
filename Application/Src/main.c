@@ -8,10 +8,12 @@ bool pin = false;
 /*!
     \brief      main function
 */
-int main(void) {
+int main(void)
+{
     Initialization_Drivers();
     Initialization_MTPA();
-    while (1) {
+    while (1)
+    {
         COM_CANProtocol();
         COM_SCIProtocol();
         // COM_DAQProtocol(systick_ms); Use CCP DAQ may cause PiSnoop display

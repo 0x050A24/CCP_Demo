@@ -70,9 +70,9 @@ static inline void MainInt_Update_Angle_and_Speed(void)
     Sensorless_Set_SpeedFdbk(res.speed);
     //Sensorless_Set_Angle(res.theta);
 
-    Buffer_Put(res.theta, 0);
+    Buffer_Put(real.theta, 0);
     Buffer_Put(est.theta, 1);
-    Buffer_Put(res.speed, 2);
+    Buffer_Put(real.speed, 2);
     Buffer_Put(est.speed, 3);
     Buffer_Put(Sensorless_Get_Error().theta, 4);
 }

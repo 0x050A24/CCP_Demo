@@ -9,6 +9,7 @@
 #include "sensorless_interface.h"
 
 #include <stdbool.h>
+#include "buffer.h"
 #include "filter.h"
 #include "flying.h"
 #include "hf_injection.h"
@@ -17,6 +18,7 @@
 #include "reciprocal.h"
 #include "transformation.h"
 #include <math.h>
+
 
 static volatile bool Sensorless_Enabled = {0};
 
@@ -225,6 +227,7 @@ bool Sensorless_Calculate_Err(AngleResult_t result)
 
 static inline float pll_update(float error, bool reset)
 {
+    
     // 更新锁相环
     float omega = Pid_Update(error, reset, &Sensorless_Theta_PID);
 
@@ -346,21 +349,42 @@ AngleResult_t Sensorless_Update_Position(void)
     }
     else
     {
-        if( Sensorless_Method == HF_INJECTION)
+        if (Sensorless_Method == HF_INJECTION)
         {
-            error             = Hfi_Get_PllErr();
+            error = Hfi_Get_PllErr();
         }
         else
         {
-            error             = Leso_Get_PllErr();
+            error = Leso_Get_PllErr();
         }
-        
     }
     omega = pll_update(error, Sensorless_Reset);
     speed = calculate_speed(omega);
+    Buffer_Put(error, 9);
 
     Leso_Set_Theta(Sensorless_ThetaEst);
     Leso_Set_Speed(speed);
+    static volatile float PLLKPMAX = 55.0F;
+    static volatile float PLLKIMAX = 4500.0F;
+    
+    if(speed > 500.0F)
+    { 
+        Sensorless_Theta_PID.Ki = 625.0F + (speed-500.0F)*19.375F;
+        Sensorless_Theta_PID.Kp = 50.0F + (speed-500.0F)*0.5F;
+        if(Sensorless_Theta_PID.Ki>PLLKIMAX)
+        {
+            Sensorless_Theta_PID.Ki = PLLKIMAX;
+        }
+        if(Sensorless_Theta_PID.Kp > PLLKPMAX)
+        {
+            Sensorless_Theta_PID.Kp = PLLKPMAX;
+        }
+    }
+    else
+    {
+        Sensorless_Theta_PID.Ki = 625.0F;
+        Sensorless_Theta_PID.Kp = 50.0F;
+    }
     Hfi_Set_Theta(Sensorless_ThetaEst);
 
     return (AngleResult_t){

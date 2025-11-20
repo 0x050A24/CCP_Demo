@@ -79,7 +79,9 @@ typedef struct
   float Vd, Vq;  // 当前输出电压（SquareWaveGenerater 更新）
   float Ud_amp;  // 方波幅值（注入幅值）
   float Uq_amp;
-  float Imax;          // 切换判定阈值
+  float Imax;    // 注入电流最大值
+  float IDmax;          // 切换判定阈值
+  float IQmax;          // 切换判定阈值
   Inj_Mode_e mode;     // 注入模式（D 轴 / Q 轴 / DQ 轴）
   int8_t inj_state_d;  // D 轴注入状态（+1 或 -1）
   int8_t inj_state_q;  // Q 轴注入状态（+1 或 -1）
