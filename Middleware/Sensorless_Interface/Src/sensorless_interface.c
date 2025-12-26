@@ -19,7 +19,6 @@
 #include "transformation.h"
 #include <math.h>
 
-
 static volatile bool Sensorless_Enabled = {0};
 
 static bool  Sensorless_Reset          = {0};
@@ -227,7 +226,6 @@ bool Sensorless_Calculate_Err(AngleResult_t result)
 
 static inline float pll_update(float error, bool reset)
 {
-    
     // 更新锁相环
     float omega = Pid_Update(error, reset, &Sensorless_Theta_PID);
 
@@ -364,18 +362,18 @@ AngleResult_t Sensorless_Update_Position(void)
 
     Leso_Set_Theta(Sensorless_ThetaEst);
     Leso_Set_Speed(speed);
-    static volatile float PLLKPMAX = 55.0F;
+    static volatile float PLLKPMAX = 150.0F;
     static volatile float PLLKIMAX = 4500.0F;
-    
-    if(speed > 500.0F)
-    { 
-        Sensorless_Theta_PID.Ki = 625.0F + (speed-500.0F)*19.375F;
-        Sensorless_Theta_PID.Kp = 50.0F + (speed-500.0F)*0.5F;
-        if(Sensorless_Theta_PID.Ki>PLLKIMAX)
+
+    if (speed > 500.0F)
+    {
+        Sensorless_Theta_PID.Ki = 625.0F + (speed - 500.0F) * 19.375F;
+        Sensorless_Theta_PID.Kp = 50.0F + (speed - 500.0F) * 0.5F;
+        if (Sensorless_Theta_PID.Ki > PLLKIMAX)
         {
             Sensorless_Theta_PID.Ki = PLLKIMAX;
         }
-        if(Sensorless_Theta_PID.Kp > PLLKPMAX)
+        if (Sensorless_Theta_PID.Kp > PLLKPMAX)
         {
             Sensorless_Theta_PID.Kp = PLLKPMAX;
         }

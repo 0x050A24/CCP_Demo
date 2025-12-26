@@ -11,7 +11,7 @@
 
 // Leso_A 和 Leso_B 是为了减少运行时计算时间而预先计算好的系数，用于后续算法中直接使用。
 
-static bool  Leso_Enabled          = {0};
+bool  Leso_Enabled          = {0};
 static float Leso_Beta1            = {0};
 static float Leso_Beta2            = {0};
 static float Leso_Rs               = {0};
@@ -41,7 +41,8 @@ static volatile float Leso_Int_limit = {0};
 static Clark_t Leso_Voltage = {0};
 static Clark_t Leso_Current = {0};
 static Clark_t Leso_CurEst  = {0};
-static Clark_t Leso_EmfEst  = {0};
+Clark_t Leso_EmfEst  = {0};
+Park_t Leso_EmfEst_dq = {0};
 
 static IIR1stFilter_t Leso_Speed_Filter = {0};
 static PID_Handler_t  Leso_Theta_PID    = {0};
@@ -247,8 +248,11 @@ void Leso_Update_EmfEstA(void)
 
     Leso_EmfEst.a = -Leso_Lq * leso_f1a;
 
-    Buffer_Put(Leso_CurEst.a, 5);
-    Buffer_Put(Leso_Current.a, 6);
+    // Buffer_Put(Leso_CurEst.a, 5);
+    // Buffer_Put(Leso_Current.a, 6);
+    Buffer_Put(Leso_EmfEst.a, 5);
+    Buffer_Put(Leso_EmfEst.b, 6);
+
 }
 
 void Leso_Update_EmfEstB(void)
@@ -275,8 +279,8 @@ void Leso_Update_EmfEstB(void)
 
     Leso_EmfEst.b = -Leso_Lq * leso_f1b;
 
-    Buffer_Put(Leso_CurEst.b, 7);
-    Buffer_Put(Leso_Current.b, 8);
+    // Buffer_Put(Leso_CurEst.b, 7);
+    // Buffer_Put(Leso_Current.b, 8);
 }
 
 // static inline float compensate_theta(float theta, float omega) {

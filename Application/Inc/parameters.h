@@ -193,7 +193,7 @@
 
 /* LESO参数 */
 #define LESO_WC_GAIN 8.0F    /* 观测器带宽系数 */
-#define LESO_WC_MAX  4200.0F /* 观测器带宽最大值 */
+#define LESO_WC_MAX  4000.0F /* 观测器带宽最大值 */
 #define LESO_WC_MIN  600.0F  /* 观测器带宽最小值 */
 
 /* 滑模观测器PLL跟踪器参数 */

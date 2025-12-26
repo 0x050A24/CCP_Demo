@@ -18,6 +18,10 @@ typedef struct {
     float Lq;      /*!< 定子电感 */
 } LESO_Param_t;
 
+extern Park_t Leso_EmfEst_dq;
+extern Clark_t Leso_EmfEst;
+extern bool  Leso_Enabled;
+
 /**
  * @brief SMO参数设置与获取接口
  */

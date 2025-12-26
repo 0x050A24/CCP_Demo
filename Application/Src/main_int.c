@@ -75,6 +75,8 @@ static inline void MainInt_Update_Angle_and_Speed(void)
     Buffer_Put(real.speed, 2);
     Buffer_Put(est.speed, 3);
     Buffer_Put(Sensorless_Get_Error().theta, 4);
+    Buffer_Put(Leso_EmfEst_dq.d, 7);
+    Buffer_Put(Leso_EmfEst_dq.q, 8);
 }
 
 static inline void MainInt_Initialization(void)

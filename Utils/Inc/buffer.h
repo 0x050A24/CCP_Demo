@@ -14,7 +14,7 @@ extern "C"
 #include <stddef.h>
 
 /* 默认内部缓冲区容量（实现文件中为固定 4） */
-#define BUFFER_DEFAULT_CAPACITY 4U
+#define BUFFER_DEFAULT_CAPACITY 10U
 
 /* 最大内部缓冲区容量（实现文件中为固定 20） */
 #define BUFFER_MAX_CAPACITY 20U
