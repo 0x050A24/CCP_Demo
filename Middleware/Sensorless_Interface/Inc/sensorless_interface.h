@@ -46,6 +46,8 @@ typedef struct {
     float switch_speed;  // 切换速度
 } Sensorless_Param_t;
 
+extern float Sensorless_PLL_Wc;
+
 bool Sensorless_Set_SampleTime(const SystemTimeConfig_t* config);
 
 bool Sensorless_Initialization(const Sensorless_Param_t* param);

@@ -87,6 +87,15 @@ bool init_module_foc(void)
                                 .value     = 0.0F};
     Foc_Set_Ramp_Speed_Handler(&ramp_cfg);
 
+    // 初始化
+    float tau_fast = LESO_EMF_FILTER_TAU;  // 2 ms
+    float fc_fast  = 1.0F / (float)(2.0F * M_PI * tau_fast);
+    float tau_slow = 1000 * tau_fast;
+    float fc_slow  = 1.0F / (float)(2.0F * M_PI * tau_slow);
+    IIR1stFilter_Init(&Leso_EMF_Filter_Fast, fc_fast, MAIN_LOOP_FREQ);
+    IIR1stFilter_Init(&Leso_EMF_Filter_Slow, fc_slow, MAIN_LOOP_FREQ);
+    MovingAvg_Init(&Leso_EMF_MovingAvg, LESO_EMF_MOVINGAVG_BUFFER_SIZE);
+    MovingAvg_Init(&Leso_EMF_MovingAvg_Short, 3);
     return true;
 }
 
@@ -133,6 +142,9 @@ bool init_module_sensorless(void)
            .MinOutput     = SENSORLESS_PLL_MIN_OUTPUT,
            .IntegralLimit = SENSORLESS_PLL_INTEGRAL_LIMIT,
            .Ts            = MAIN_LOOP_TIME};
+
+    Sensorless_PLL_Wc = SENSORLESS_PLL_WC;
+
     Sensorless_Set_PidParams(&sensorless_pid);
     Sensorless_Set_MotorParams(&motor_param);
 

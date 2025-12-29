@@ -7,6 +7,7 @@
  */
 
 #include "sensorless_interface.h"
+#include "parameters.h"
 
 #include <stdbool.h>
 #include "buffer.h"
@@ -41,6 +42,7 @@ volatile float Sensorless_ThetAdj = {0};
 static PID_Handler_t  Sensorless_Theta_PID    = {0};
 static IIR1stFilter_t Sensorless_SpeedFilter1 = {0};
 static IIR2ndFilter_t Sensorless_SpeedFilter2 = {0};
+float Sensorless_PLL_Wc = 0.0F;
 
 static sensorless_method_t Sensorless_Method = FLYING;
 
@@ -358,17 +360,19 @@ AngleResult_t Sensorless_Update_Position(void)
     }
     omega = pll_update(error, Sensorless_Reset);
     speed = calculate_speed(omega);
-    Buffer_Put(error, 9);
+    //Buffer_Put(error, 9);
 
     Leso_Set_Theta(Sensorless_ThetaEst);
     Leso_Set_Speed(speed);
-    static volatile float PLLKPMAX = 150.0F;
-    static volatile float PLLKIMAX = 4500.0F;
+
+    static volatile float PLLKPMAX = 80.0F;
+    static volatile float PLLKIMAX = 1600.0F;
 
     if (speed > 500.0F)
     {
-        Sensorless_Theta_PID.Ki = 625.0F + (speed - 500.0F) * 19.375F;
-        Sensorless_Theta_PID.Kp = 50.0F + (speed - 500.0F) * 0.5F;
+        Sensorless_PLL_Wc = SENSORLESS_PLL_WC + (speed - 500.0F) * 0.075F;
+        Sensorless_Theta_PID.Ki = Sensorless_PLL_Wc * Sensorless_PLL_Wc;
+        Sensorless_Theta_PID.Kp = 2.0F * Sensorless_PLL_Wc;
         if (Sensorless_Theta_PID.Ki > PLLKIMAX)
         {
             Sensorless_Theta_PID.Ki = PLLKIMAX;

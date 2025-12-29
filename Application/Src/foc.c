@@ -1,10 +1,10 @@
 #include "foc.h"
+#include "buffer.h"
 #include "leso.h"
 #include "pid.h"
 #include "signal.h"
 #include "stdint.h"
 #include "transformation.h"
-
 
 #include "MTPA.h"
 #include "identification.h"
@@ -40,7 +40,20 @@ static PID_Handler_t   Foc_Pid_CurQ_Handler   = {0};
 static RampGenerator_t Foc_Ramp_Speed_Handler = {0};
 static SawtoothWave_t  Foc_Sawtooth_Handler   = {0};
 
+IIR1stFilter_t Leso_EMF_Filter_Fast     = {0};
+IIR1stFilter_t Leso_EMF_Filter_Slow     = {0};
+MovingAvg_t    Leso_EMF_MovingAvg       = {0};
+MovingAvg_t    Leso_EMF_MovingAvg_Short = {0};
+
+static PI_Tuner_t Foc_Pi_Tuner
+    = {.Tune_Ratio = 5.0F, .Tune_Threshold = 50.0F, .Tuned = false};
+
 FluxExperiment_t Experiment = {0};
+
+float_t Comp_Max = 20.0F;
+
+static inline void Compensate_Trigger(float_t slow, float_t fast);
+static inline void Compensate_Update(float_t error, float_t sign);
 
 void Foc_Set_SampleTime(const SystemTimeConfig_t* config)
 {
@@ -510,21 +523,139 @@ static inline Park_t Foc_Update_SpeedMode(bool reset)
 
     Foc_Idq_Fdbk = ParkTransform(Foc_Iclark_Fdbk, Foc_Theta);
 
-    Park_t output = {0};
+    Park_t output       = {0};
+    Park_t Foc_Idq_Comp = {0};
     // 更新转速环
     Foc_Idq_Ref
         = Foc_Update_SpeedLoop(Foc_Speed_Ref, Foc_Speed_Fdbk, reset);
 
-    // 更新电流环
     output = Foc_Update_CurrentLoop(Foc_Idq_Ref, Foc_Idq_Fdbk, reset);
 
     if (Leso_Enabled)
     {
-        Leso_EmfEst_dq = ParkTransform(Leso_EmfEst, Foc_Theta);
+        Leso_EmfEst_dq      = ParkTransform(Leso_EmfEst, Foc_Theta);
+        Leso_Emf_Filtered.q = IIR1stFilter_Update(&Leso_EMF_Filter_Fast,
+                                                  Leso_EmfEst_dq.q);
+        Leso_Emf_Filtered.d = IIR1stFilter_Update(&Leso_EMF_Filter_Fast,
+                                                  Leso_EmfEst_dq.d);
 
+        Leso_Emf_Filtered.q = MovingAvg_Update(
+            &Leso_EMF_MovingAvg_Short, Leso_EmfEst_dq.q);
+        Leso_Emf_Slow_Filtered.q
+            = MovingAvg_Update(&Leso_EMF_MovingAvg, Leso_EmfEst_dq.q);
+
+        float error = fabsf(Leso_Emf_Slow_Filtered.q - Comp.trigger_on);
+        float sign
+            = (Leso_Emf_Slow_Filtered.q > EMF_TRIG_MIN) ? -1.0f : +1.0f;
+        Compensate_Trigger(Leso_Emf_Slow_Filtered.q,
+                           Leso_Emf_Filtered.q);
+        Compensate_Update(error, sign);
+
+        if (Comp.active)
+        {
+            // Foc_Idq_Comp.q = sign * Comp.value;
+            // Foc_Idq_Ref.q += Foc_Idq_Comp.q;
+            //output.q += sign * Comp.value;
+        }
     }
 
+    if ((fabsf(Foc_Speed_Fdbk - Foc_Speed_Ramp)
+         > Foc_Pi_Tuner.Tune_Threshold)
+        && Foc_Pi_Tuner.Tuned == false)
+    {
+        Foc_Pid_Speed_Handler.Kp
+            = Foc_Pi_Tuner.Tune_Ratio * Foc_Pid_Speed_Handler.Kp;
+        Foc_Pid_Speed_Handler.Ki
+            = Foc_Pi_Tuner.Tune_Ratio * Foc_Pid_Speed_Handler.Ki;
+        Foc_Pi_Tuner.Tuned = true;
+    }
+    if (Foc_Pi_Tuner.Tuned)
+    {
+        if (fabsf(Foc_Speed_Fdbk - Foc_Speed_Ramp)
+            < Foc_Pi_Tuner.Tune_Threshold)
+        {
+            Foc_Pid_Speed_Handler.Kp
+                = Foc_Pid_Speed_Handler.Kp / Foc_Pi_Tuner.Tune_Ratio;
+            Foc_Pid_Speed_Handler.Ki
+                = Foc_Pid_Speed_Handler.Ki / Foc_Pi_Tuner.Tune_Ratio;
+            Foc_Pi_Tuner.Tuned = false;
+        }
+    }
+
+    // 更新电流环
+    if (output.q > PID_CURRENT_Q_LOOP_MAX_OUTPUT)
+    {
+        output.q = PID_CURRENT_Q_LOOP_MAX_OUTPUT;
+    }
+    if (output.q < -PID_CURRENT_Q_LOOP_MAX_OUTPUT)
+    {
+        output.q = -PID_CURRENT_Q_LOOP_MAX_OUTPUT;
+    }
+
+    Buffer_Put(output.q, 5);
+    Buffer_Put(Foc_Idq_Fdbk.q, 6);
+    Buffer_Put(Comp.value, 7);
+
     return output;
+}
+
+static inline void Compensate_Trigger(float_t slow, float_t fast)
+{
+    float error     = fabsf(fast - slow);
+    Comp.trigger_on = K_TRIG * slow;
+    if (Comp.trigger_on < EMF_TRIG_MIN)
+    {
+        Comp.trigger_on = EMF_TRIG_MIN;
+    }
+    // Comp.trigger_off = 0.5f * Comp.trigger_on;
+    Comp.trigger_off = 250.0F;
+
+    if (!Comp.active)
+    {
+        // if (error > Comp.trigger_on)
+        if (slow > Comp.trigger_on)
+        {
+            Comp.active = true;
+        }
+    }
+    else
+    {
+        if (slow < Comp.trigger_off)
+        {
+            Comp.active = false;
+        }
+    }
+}
+
+static inline void Compensate_Update(float_t error, float_t sign)
+{
+    // 上升沿：刚触发
+    if (Comp.active && !Comp.active_last)
+    {
+        // Comp.init  = K_COMP * fabsf(error);
+        Comp.init  = Comp_Max;
+        Comp.init  = (Comp.init < 0.0f)       ? 0.0f
+                     : (Comp.init > Comp_Max) ? Comp_Max
+                                              : Comp.init;
+        Comp.value = Comp.init;
+        Comp.ticks = BASE_COMP_TICKS + K_TICKS * Comp.init;
+    }
+
+    if (Comp.active)
+    {
+        Comp.value *= COMP_ALPHA;
+        if (--Comp.ticks <= 0)
+        {
+            Comp.active = false;
+            Comp.value  = 0.0f;
+        }
+    }
+    else
+    {
+        Comp.value = 0.0f;
+    }
+
+    Comp.active_last = Comp.active;
 }
 
 Park_t Foc_Update_Main(void)

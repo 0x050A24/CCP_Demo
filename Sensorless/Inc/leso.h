@@ -6,6 +6,14 @@
 #include "theta_calc.h"
 #include "transformation.h"
 
+#define K_TRIG   0.5F
+#define EMF_TRIG_MIN 280.0F
+#define K_COMP        0.2F
+#define COMP_ALPHA    1.0F
+#define COMP_MAX      (20.0F)
+#define BASE_COMP_TICKS 100U
+#define K_TICKS       10U
+
 /**
  * @brief 无传感器控制状态机
  */
@@ -18,7 +26,22 @@ typedef struct {
     float Lq;      /*!< 定子电感 */
 } LESO_Param_t;
 
+typedef struct
+{
+    bool    active;
+    bool    active_last;
+    uint16_t ticks;
+    float_t value;      // 当前补偿输出
+    float_t init;       // 初始补偿值
+    float_t trigger_on;
+    float_t trigger_off;
+} Compensator_t;
+
+extern Compensator_t Comp;
+
 extern Park_t Leso_EmfEst_dq;
+extern Park_t Leso_Emf_Filtered;
+extern Park_t Leso_Emf_Slow_Filtered;
 extern Clark_t Leso_EmfEst;
 extern bool  Leso_Enabled;
 

@@ -43,6 +43,9 @@ static Clark_t Leso_Current = {0};
 static Clark_t Leso_CurEst  = {0};
 Clark_t Leso_EmfEst  = {0};
 Park_t Leso_EmfEst_dq = {0};
+Park_t Leso_Emf_Filtered = {0};
+Park_t Leso_Emf_Slow_Filtered = {0};
+Compensator_t Comp = {0};
 
 static IIR1stFilter_t Leso_Speed_Filter = {0};
 static PID_Handler_t  Leso_Theta_PID    = {0};
@@ -250,8 +253,7 @@ void Leso_Update_EmfEstA(void)
 
     // Buffer_Put(Leso_CurEst.a, 5);
     // Buffer_Put(Leso_Current.a, 6);
-    Buffer_Put(Leso_EmfEst.a, 5);
-    Buffer_Put(Leso_EmfEst.b, 6);
+
 
 }
 

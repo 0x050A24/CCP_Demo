@@ -4,6 +4,7 @@
 
 #include <stdbool.h>
 #include <stddef.h>
+#include "parameters.h"
 
 #define MAX_FILTER_SIZE 32
 
@@ -53,7 +54,8 @@
 /**
  * @brief Low pass filter structure
  */
-typedef struct {
+typedef struct
+{
     float alpha;        // Filter coefficient
     float prev_output;  // Previous output value
     bool  initialized;  // Initialization flag
@@ -63,7 +65,8 @@ typedef struct {
  * @brief Band pass filter structure (using two cascaded
  * filters)
  */
-typedef struct {
+typedef struct
+{
     // 滤波器系数
     float b0, b1, b2;  // 分子系数
     float a1, a2;      // 分母系数（a0固定为1）
@@ -77,7 +80,8 @@ typedef struct {
 /**
  * @brief High pass filter structure
  */
-typedef struct {
+typedef struct
+{
     float alpha;        // Filter coefficient
     float prev_input;   // Previous input value
     float prev_output;  // Previous output value
@@ -87,7 +91,8 @@ typedef struct {
 /**
  * @brief Band stop (notch) filter structure
  */
-typedef struct {
+typedef struct
+{
     // 滤波器系数
     float b0;
     float b1;
@@ -102,7 +107,8 @@ typedef struct {
     float y2;  // 前两个输出
 } BandStopFilter_t;
 
-typedef struct {
+typedef struct
+{
     // 滤波器系数
     float a1;
     float a2;
@@ -119,6 +125,16 @@ typedef struct {
     bool initialized;  // 是否已初始化
 } IIR2ndFilter_t;
 
+typedef struct
+{
+    
+    uint16_t size;
+    uint16_t idx;
+    uint16_t count;
+    float    sum;
+    float    buf[LESO_EMF_MOVINGAVG_BUFFER_SIZE];
+} MovingAvg_t;
+
 // Low pass filter functions
 void IIR1stFilter_Init(IIR1stFilter_t* filter,
                        float           cutoff_freq,
@@ -130,8 +146,8 @@ void IIR1stFilter_Init(IIR1stFilter_t* filter,
  * @param input: input value
  * @return filtered output value
  */
-static inline float IIR1stFilter_Update(IIR1stFilter_t* filter,
-                                        float           x) {
+static inline float IIR1stFilter_Update(IIR1stFilter_t* filter, float x)
+{
     float y = filter->alpha * filter->prev_output
               + (1.0F - filter->alpha) * x;
     filter->prev_output = y;
@@ -151,13 +167,16 @@ void HighPassFilter_Init(HighPassFilter_t* filter,
  * @return filtered output value
  */
 static inline float HighPassFilter_Update(HighPassFilter_t* filter,
-                                          float             input) {
-    if (filter == NULL) {
+                                          float             input)
+{
+    if (filter == NULL)
+    {
         return input;
     }
 
     // Initialize with first input value
-    if (!filter->initialized) {
+    if (!filter->initialized)
+    {
         filter->prev_input  = input;
         filter->prev_output = 0.0f;
         filter->initialized = true;
@@ -187,8 +206,10 @@ void BandPassFilter_Init(BandPassFilter_t* filter,
  * @return filtered output value
  */
 static inline float BandPassFilter_Update(BandPassFilter_t* filter,
-                                          float             input) {
-    if (filter == NULL) {
+                                          float             input)
+{
+    if (filter == NULL)
+    {
         return input;  // 如果滤波器指针无效，返回原始输入
     }
 
@@ -221,8 +242,10 @@ void BandStopFilter_Init(BandStopFilter_t* filter,
  * @return filtered output value
  */
 static inline float BandStopFilter_Update(BandStopFilter_t* filter,
-                                          float             input) {
-    if (filter == NULL) {
+                                          float             input)
+{
+    if (filter == NULL)
+    {
         return input;  // 如果滤波器指针无效，返回原始输入
     }
 
@@ -247,8 +270,10 @@ void IIR2ndFilter_Init(IIR2ndFilter_t* filter,
                        float           sample_freq);
 
 static inline float IIR2ndFilter_Update(IIR2ndFilter_t* filter,
-                                        float           input) {
-    if (filter == NULL) {
+                                        float           input)
+{
+    if (filter == NULL)
+    {
         return input;  // 无效指针处理
     }
 
@@ -267,5 +292,44 @@ static inline float IIR2ndFilter_Update(IIR2ndFilter_t* filter,
 }
 
 void IIR2ndFilter_Reset(IIR2ndFilter_t* filter);
+
+static inline void MovingAvg_Init(MovingAvg_t* filt, uint16_t size)
+{
+    filt->idx   = 0;
+    filt->count = 0;
+    filt->sum   = 0.0f;
+    filt->size  = size;
+
+    for (uint16_t i = 0; i < size; i++)
+    {
+        filt->buf[i] = 0.0f;
+    }
+}
+
+static inline float MovingAvg_Update(MovingAvg_t* filt, float x)
+{
+    // 减去最旧样本
+    filt->sum -= filt->buf[filt->idx];
+
+    // 写入新样本
+    filt->buf[filt->idx] = x;
+    filt->sum += x;
+
+    // 更新索引
+    filt->idx++;
+    if (filt->idx >= filt->size)
+    {
+        filt->idx = 0;
+    }
+
+    // 计数（启动阶段）
+    if (filt->count < filt->size)
+    {
+        filt->count++;
+    }
+
+    // 输出均值
+    return filt->sum / (float)filt->count;
+}
 
 #endif /* __FILTER_H__ */

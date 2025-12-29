@@ -61,6 +61,10 @@
     (MAIN_LOOP_FREQ / SPEED_LOOP_PRESCALER)      /* 1kHz */
 #define SPEED_LOOP_TIME (1.0F / SPEED_LOOP_FREQ) /* 1ms */
 
+/* 基于LESO的反电动势观测时间常数 */
+#define LESO_EMF_FILTER_TAU 2e-3F
+#define LESO_EMF_MOVINGAVG_BUFFER_SIZE 40U
+
 /*********************************************************************/
 /*                        电机物理参数                                 */
 /*********************************************************************/
@@ -99,7 +103,7 @@
 /*********************************************************************/
 /* 电压保护参数 */
 #define PROTECT_VOLTAGE_RATE        560.0F /* 额定电压：560V */
-#define PROTECT_VOLTAGE_FLUCTUATION 160.0F  /* 允许电压波动：±60V */
+#define PROTECT_VOLTAGE_FLUCTUATION 160.0F /* 允许电压波动：±60V */
 
 /* 电流和温度保护参数 */
 #define PROTECT_CURRENT_MAX 30.0F /* 最大电流限制：30A */
@@ -109,7 +113,7 @@
 /*                        FOC控制参数配置                              */
 /*********************************************************************/
 /* 转速斜坡控制参数 */
-#define RAMP_SPEED_SLOPE     100.0F   /* 速度变化率限制：100 rpm/s */
+#define RAMP_SPEED_SLOPE     200.0F   /* 速度变化率限制：100 rpm/s */
 #define RAMP_SPEED_LIMIT_MAX 1800.0F  /* 最大转速限制：1800 rpm */
 #define RAMP_SPEED_LIMIT_MIN -1800.0F /* 最小转速限制：-1800 rpm */
 #define RAMP_SPEED_TIME      (SPEED_LOOP_TIME) /* 转速环采样周期 */
@@ -161,6 +165,7 @@
 #define SENSORLESS_SWITCH_SPEED 400.0F /* 无传感器切换速度：460rpm */
 
 /* 无位置PLL跟踪器参数 */
+#define SENSORLESS_PLL_WC         25.0F  /* PLL带宽 */
 #define SENSORLESS_PLL_KP         50.0F  /* PLL比例系数 */
 #define SENSORLESS_PLL_KI         625.0F /* PLL积分系数 */
 #define SENSORLESS_PLL_KD         0.0F   /* PLL微分系数 */
@@ -214,6 +219,6 @@
 /*                        Buffer参数配置                            */
 /*********************************************************************/
 #define BUFFER_CAPACITY  10U /* 默认缓冲区容量 */
-#define BUFFER_PRESCALER 1U /* 默认缓冲区预分频器 */
+#define BUFFER_PRESCALER 1U  /* 默认缓冲区预分频器 */
 
 #endif
