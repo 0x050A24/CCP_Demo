@@ -5,12 +5,12 @@
 #include "signal.h"
 #include "stdint.h"
 #include "transformation.h"
+#include "parameters.h"
 
 #include "MTPA.h"
 #include "identification.h"
 
 static FocMode_t Foc_Mode            = IDLE;   // 当前FOC模式
-static FocMode_t Foc_Mode_Prev       = IDLE;   // 上一次FOC模式
 static bool      Foc_Reset           = false;  // FOC复位标志
 static float     Foc_Current_Ts      = 0.0F;   // 电流环采样周期
 static float     Foc_Current_Freq    = 0.0F;   // 电流环频率
@@ -23,8 +23,6 @@ static float     Foc_Theta           = 0.0F;
 static float     Foc_BusVoltage      = 0.0F;
 static float     Foc_BusVoltage_Inv  = 0.0F;
 static float     Foc_Speed_Ramp      = 0.0F;  // 实际指令转速
-
-static volatile float Foc_Id_Min = 0.3F;  // D轴电流最小值
 static volatile bool  Foc_Sweep  = true;  // FOC扫频标志
 
 static VF_Parameter_t  Foc_VfParam            = {0};
@@ -40,20 +38,10 @@ static PID_Handler_t   Foc_Pid_CurQ_Handler   = {0};
 static RampGenerator_t Foc_Ramp_Speed_Handler = {0};
 static SawtoothWave_t  Foc_Sawtooth_Handler   = {0};
 
-IIR1stFilter_t Leso_EMF_Filter_Fast     = {0};
-IIR1stFilter_t Leso_EMF_Filter_Slow     = {0};
-MovingAvg_t    Leso_EMF_MovingAvg       = {0};
-MovingAvg_t    Leso_EMF_MovingAvg_Short = {0};
-
 static PI_Tuner_t Foc_Pi_Tuner
     = {.Tune_Ratio = 5.0F, .Tune_Threshold = 50.0F, .Tuned = false};
 
 FluxExperiment_t Experiment = {0};
-
-float_t Comp_Max = 20.0F;
-
-static inline void Compensate_Trigger(float_t slow, float_t fast);
-static inline void Compensate_Update(float_t error, float_t sign);
 
 void Foc_Set_SampleTime(const SystemTimeConfig_t* config)
 {
@@ -524,40 +512,11 @@ static inline Park_t Foc_Update_SpeedMode(bool reset)
     Foc_Idq_Fdbk = ParkTransform(Foc_Iclark_Fdbk, Foc_Theta);
 
     Park_t output       = {0};
-    Park_t Foc_Idq_Comp = {0};
     // 更新转速环
     Foc_Idq_Ref
         = Foc_Update_SpeedLoop(Foc_Speed_Ref, Foc_Speed_Fdbk, reset);
 
     output = Foc_Update_CurrentLoop(Foc_Idq_Ref, Foc_Idq_Fdbk, reset);
-
-    if (Leso_Enabled)
-    {
-        Leso_EmfEst_dq      = ParkTransform(Leso_EmfEst, Foc_Theta);
-        Leso_Emf_Filtered.q = IIR1stFilter_Update(&Leso_EMF_Filter_Fast,
-                                                  Leso_EmfEst_dq.q);
-        Leso_Emf_Filtered.d = IIR1stFilter_Update(&Leso_EMF_Filter_Fast,
-                                                  Leso_EmfEst_dq.d);
-
-        Leso_Emf_Filtered.q = MovingAvg_Update(
-            &Leso_EMF_MovingAvg_Short, Leso_EmfEst_dq.q);
-        Leso_Emf_Slow_Filtered.q
-            = MovingAvg_Update(&Leso_EMF_MovingAvg, Leso_EmfEst_dq.q);
-
-        float error = fabsf(Leso_Emf_Slow_Filtered.q - Comp.trigger_on);
-        float sign
-            = (Leso_Emf_Slow_Filtered.q > EMF_TRIG_MIN) ? -1.0f : +1.0f;
-        Compensate_Trigger(Leso_Emf_Slow_Filtered.q,
-                           Leso_Emf_Filtered.q);
-        Compensate_Update(error, sign);
-
-        if (Comp.active)
-        {
-            // Foc_Idq_Comp.q = sign * Comp.value;
-            // Foc_Idq_Ref.q += Foc_Idq_Comp.q;
-            //output.q += sign * Comp.value;
-        }
-    }
 
     if ((fabsf(Foc_Speed_Fdbk - Foc_Speed_Ramp)
          > Foc_Pi_Tuner.Tune_Threshold)
@@ -597,65 +556,6 @@ static inline Park_t Foc_Update_SpeedMode(bool reset)
     Buffer_Put(Comp.value, 7);
 
     return output;
-}
-
-static inline void Compensate_Trigger(float_t slow, float_t fast)
-{
-    float error     = fabsf(fast - slow);
-    Comp.trigger_on = K_TRIG * slow;
-    if (Comp.trigger_on < EMF_TRIG_MIN)
-    {
-        Comp.trigger_on = EMF_TRIG_MIN;
-    }
-    // Comp.trigger_off = 0.5f * Comp.trigger_on;
-    Comp.trigger_off = 250.0F;
-
-    if (!Comp.active)
-    {
-        // if (error > Comp.trigger_on)
-        if (slow > Comp.trigger_on)
-        {
-            Comp.active = true;
-        }
-    }
-    else
-    {
-        if (slow < Comp.trigger_off)
-        {
-            Comp.active = false;
-        }
-    }
-}
-
-static inline void Compensate_Update(float_t error, float_t sign)
-{
-    // 上升沿：刚触发
-    if (Comp.active && !Comp.active_last)
-    {
-        // Comp.init  = K_COMP * fabsf(error);
-        Comp.init  = Comp_Max;
-        Comp.init  = (Comp.init < 0.0f)       ? 0.0f
-                     : (Comp.init > Comp_Max) ? Comp_Max
-                                              : Comp.init;
-        Comp.value = Comp.init;
-        Comp.ticks = BASE_COMP_TICKS + K_TICKS * Comp.init;
-    }
-
-    if (Comp.active)
-    {
-        Comp.value *= COMP_ALPHA;
-        if (--Comp.ticks <= 0)
-        {
-            Comp.active = false;
-            Comp.value  = 0.0f;
-        }
-    }
-    else
-    {
-        Comp.value = 0.0f;
-    }
-
-    Comp.active_last = Comp.active;
 }
 
 Park_t Foc_Update_Main(void)

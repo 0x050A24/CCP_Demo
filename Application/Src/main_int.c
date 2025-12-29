@@ -3,7 +3,6 @@
 #include "Initialization.h"
 #include "foc.h"
 #include "hardware_interface.h"
-#include "justfloat.h"
 #include "leso.h"
 #include "reciprocal.h"
 #include "sensorless_interface.h"

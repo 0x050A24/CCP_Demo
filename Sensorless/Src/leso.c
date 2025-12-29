@@ -1,7 +1,6 @@
 #include "leso.h"
 #include <stdbool.h>
 #include "arm_math.h" /* CMSIS-DSP math */  // IWYU pragma: export
-#include "buffer.h"
 #include "filter.h"
 #include "pid.h"
 #include "theta_calc.h"
@@ -98,14 +97,14 @@ void Leso_Set_Pn(float pole_pairs)
 
 void Leso_Set_Inductor(Park_t inductance)
 {
-    Leso_Ld           = inductance.d <= 0.001 ? 0.001 : inductance.d;
-    Leso_Lq           = inductance.q <= 0.001 ? 0.001 : inductance.q;
+    Leso_Ld           = inductance.d <= 0.001F ? 0.001F : inductance.d;
+    Leso_Lq           = inductance.q <= 0.001F ? 0.001F : inductance.q;
     Leso_InvLd        = 1.0F / Leso_Ld;
     Leso_InvLq        = 1.0F / Leso_Lq;
-    float  leso_Ld    = inductance.d <= 0.001 ? 0.001 : inductance.d;
-    float  leso_Lq    = inductance.q <= 0.001 ? 0.001 : inductance.q;
-    float  leso_InvLd = 1.0F / leso_Ld;
-    float  leso_InvLq = 1.0F / leso_Lq;
+    // float  leso_Ld    = inductance.d <= 0.001F ? 0.001F : inductance.d;
+    // float  leso_Lq    = inductance.q <= 0.001F ? 0.001F : inductance.q;
+    // float  leso_InvLd = 1.0F / leso_Ld;
+    // float  leso_InvLq = 1.0F / leso_Lq;
     Park_t Idq        = ParkTransform(Leso_Current, Leso_Theta);
     Idq.d             = Idq.d <= 0.5F ? 0.5F : Idq.d;
     // float temp        = (leso_Ld - leso_Lq) / leso_Lq * Idq.d;

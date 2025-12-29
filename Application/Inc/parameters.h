@@ -61,10 +61,6 @@
     (MAIN_LOOP_FREQ / SPEED_LOOP_PRESCALER)      /* 1kHz */
 #define SPEED_LOOP_TIME (1.0F / SPEED_LOOP_FREQ) /* 1ms */
 
-/* 基于LESO的反电动势观测时间常数 */
-#define LESO_EMF_FILTER_TAU 2e-3F
-#define LESO_EMF_MOVINGAVG_BUFFER_SIZE 40U
-
 /*********************************************************************/
 /*                        电机物理参数                                 */
 /*********************************************************************/

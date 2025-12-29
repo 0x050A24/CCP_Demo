@@ -4,7 +4,6 @@
 时作个判断即可），否则减速会失速！；该算法跟有无位置传感器无关，只要无位置算法对DQ电流没有特殊需求，均适用*/
 
 #include "MTPA.h"
-#include "motor.h"
 #include "theta_calc.h"
 #include "transformation.h"
 #include <math.h>
@@ -96,13 +95,21 @@ static void compute_at_psi_gamma(
     float Te_local = MTPA_calc_torque(psi_d, psi_q, id_local, iq_local);
     float Is_local = sqrtf(id_local * id_local + iq_local * iq_local);
     if (Id)
+    {
         *Id = id_local;
+    }
     if (Iq)
+    {
         *Iq = iq_local;
+    }
     if (Te)
+    {
         *Te = Te_local;
+    }
     if (Is)
+    {
         *Is = Is_local;
+    }
 }
 
 /* -------------- 内环求 Psi（在固定 gamma 下），返回最小 Psi 使 Te >= T_req -------------- */
@@ -136,15 +143,25 @@ static bool find_psi_for_T_at_gamma(float  T_req,
     if (T_req <= 0.0f)
     {
         if (out_psi)
+        {
             *out_psi = 0.0f;
+        }
         if (out_Id)
+        {
             *out_Id = Id_prev;
+        }
         if (out_Iq)
+        {
             *out_Iq = Iq_prev;
+        }
         if (out_Te)
+        {
             *out_Te = Te_prev;
+        }
         if (out_Is)
+        {
             *out_Is = Is_prev;
+        }
         return true;
     }
 
@@ -206,11 +223,15 @@ static bool find_psi_for_T_at_gamma(float  T_req,
     compute_at_psi_gamma(
         psi_root, gamma, out_Te, out_Id, out_Iq, out_Is);
     if (out_psi)
+    {
         *out_psi = psi_root;
+    }
 
     /* 若 Te(root) < T_req（数值问题）则认为不可行 */
     if (out_Te && (*out_Te < T_req - 1e-6f))
+    {
         return false;
+    }
 
     return true;
 }
@@ -220,7 +241,9 @@ static bool find_psi_for_T_at_gamma(float  T_req,
 bool MTPA_compute_for_T(float T_req, MTPA_Point* out_p)
 {
     if (!out_p)
+    {
         return false;
+    }
 
     /* 特殊处理：T_req == 0 要求 Iq=0, Id=0.5 按要求 */
     if (T_req <= 0.0f)
@@ -252,11 +275,15 @@ bool MTPA_compute_for_T(float T_req, MTPA_Point* out_p)
     bool  okc = find_psi_for_T_at_gamma(
         T_req, c, &psi_tmp, &Id_tmp, &Iq_tmp, &Te_tmp, &Is_c);
     if (!okc)
+    {
         Is_c = 1e30f; /* 不可行 */
+    }
     bool okd = find_psi_for_T_at_gamma(
         T_req, d, &psi_tmp, &Id_tmp, &Iq_tmp, &Te_tmp, &Is_d);
     if (!okd)
+    {
         Is_d = 1e30f;
+    }
 
     int   iter       = 0;
     float best_gamma = 0.0f, best_psi = 0.0f, best_Id = 0.0f,
@@ -382,7 +409,9 @@ void MTPA_build_table(MTPA_Point table[],
                       float      T_max)
 {
     if (n_points <= 0)
+    {
         return;
+    }
     /* 均匀分配 T 值（含端点） */
     for (int k = 0; k < n_points; ++k)
     {
@@ -435,9 +464,13 @@ void MTPA_interp_by_Iq(const MTPA_Point table[],
     if (n_points <= 0)
     {
         if (Id_ref)
+        {
             *Id_ref = 0.0f;
+        }
         if (Iq_out)
+        {
             *Iq_out = 0.0f;
+        }
         return;
     }
     /* 找到 Iq_ref 所在区间（表按 Iq 不一定排序；此处假定传入表是按 Iq 单调的，
@@ -446,10 +479,14 @@ void MTPA_interp_by_Iq(const MTPA_Point table[],
     for (i = 0; i < n_points - 1; i++)
     {
         if (Iq_ref >= table[i].Iq && Iq_ref <= table[i + 1].Iq)
+        {
             break;
+        }
     }
     if (i >= n_points - 1)
+    {
         i = n_points - 2;
+    }
     float w = (Iq_ref - table[i].Iq)
               / (table[i + 1].Iq - table[i].Iq + 1e-9f);
     *Id_ref         = table[i].Id + w * (table[i + 1].Id - table[i].Id);

@@ -4,7 +4,7 @@
 
 #include <stdbool.h>
 #include <stddef.h>
-#include "parameters.h"
+#include "parameters.h" /* CMSIS-DSP math */  // IWYU pragma: export
 
 #define MAX_FILTER_SIZE 32
 
@@ -124,16 +124,6 @@ typedef struct
 
     bool initialized;  // 是否已初始化
 } IIR2ndFilter_t;
-
-typedef struct
-{
-    
-    uint16_t size;
-    uint16_t idx;
-    uint16_t count;
-    float    sum;
-    float    buf[LESO_EMF_MOVINGAVG_BUFFER_SIZE];
-} MovingAvg_t;
 
 // Low pass filter functions
 void IIR1stFilter_Init(IIR1stFilter_t* filter,
@@ -292,44 +282,5 @@ static inline float IIR2ndFilter_Update(IIR2ndFilter_t* filter,
 }
 
 void IIR2ndFilter_Reset(IIR2ndFilter_t* filter);
-
-static inline void MovingAvg_Init(MovingAvg_t* filt, uint16_t size)
-{
-    filt->idx   = 0;
-    filt->count = 0;
-    filt->sum   = 0.0f;
-    filt->size  = size;
-
-    for (uint16_t i = 0; i < size; i++)
-    {
-        filt->buf[i] = 0.0f;
-    }
-}
-
-static inline float MovingAvg_Update(MovingAvg_t* filt, float x)
-{
-    // 减去最旧样本
-    filt->sum -= filt->buf[filt->idx];
-
-    // 写入新样本
-    filt->buf[filt->idx] = x;
-    filt->sum += x;
-
-    // 更新索引
-    filt->idx++;
-    if (filt->idx >= filt->size)
-    {
-        filt->idx = 0;
-    }
-
-    // 计数（启动阶段）
-    if (filt->count < filt->size)
-    {
-        filt->count++;
-    }
-
-    // 输出均值
-    return filt->sum / (float)filt->count;
-}
 
 #endif /* __FILTER_H__ */

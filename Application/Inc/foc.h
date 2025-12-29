@@ -6,7 +6,6 @@
 #include "reciprocal.h"
 #include "signal.h"
 #include "transformation.h"
-#include "filter.h"
 
 typedef enum
 {
@@ -38,12 +37,6 @@ typedef struct{
     float Tune_Threshold;
     bool Tuned;
 } PI_Tuner_t;
-
-extern IIR1stFilter_t Leso_EMF_Filter_Fast;
-extern IIR1stFilter_t Leso_EMF_Filter_Slow;
-extern MovingAvg_t   Leso_EMF_MovingAvg;
-extern MovingAvg_t Leso_EMF_MovingAvg_Short;
-extern float EMF_Slow;
 
 void      Foc_Set_SampleTime(const SystemTimeConfig_t* config);
 void      Foc_Set_Mode(FocMode_t mode);
