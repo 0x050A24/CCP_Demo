@@ -1,17 +1,18 @@
 #include "leso.h"
 #include <stdbool.h>
 #include "arm_math.h" /* CMSIS-DSP math */  // IWYU pragma: export
+#include "buffer.h"
 #include "filter.h"
 #include "pid.h"
 #include "theta_calc.h"
 #include "transformation.h"
-#include "buffer.h"
+
 
 #define SQRT(x, y) arm_sqrt_f32(x, y)
 
 // Leso_A 和 Leso_B 是为了减少运行时计算时间而预先计算好的系数，用于后续算法中直接使用。
 
-bool  Leso_Enabled          = {0};
+bool         Leso_Enabled          = {0};
 static float Leso_Beta1            = {0};
 static float Leso_Beta2            = {0};
 static float Leso_Rs               = {0};
@@ -38,14 +39,14 @@ static volatile float Leso_Theta_Err = {0};
 static volatile float Leso_Speed_Err = {0};
 static volatile float Leso_Int_limit = {0};
 
-static Clark_t Leso_Voltage = {0};
-static Clark_t Leso_Current = {0};
-static Clark_t Leso_CurEst  = {0};
-Clark_t Leso_EmfEst  = {0};
-Park_t Leso_EmfEst_dq = {0};
-Park_t Leso_Emf_Filtered = {0};
-Park_t Leso_Emf_Slow_Filtered = {0};
-Compensator_t Comp = {0};
+static Clark_t Leso_Voltage           = {0};
+static Clark_t Leso_Current           = {0};
+static Clark_t Leso_CurEst            = {0};
+Clark_t        Leso_EmfEst            = {0};
+Park_t         Leso_EmfEst_dq         = {0};
+Park_t         Leso_Emf_Filtered      = {0};
+Park_t         Leso_Emf_Slow_Filtered = {0};
+Compensator_t  Comp                   = {0};
 
 static IIR1stFilter_t Leso_Speed_Filter = {0};
 static PID_Handler_t  Leso_Theta_PID    = {0};
@@ -98,16 +99,16 @@ void Leso_Set_Pn(float pole_pairs)
 
 void Leso_Set_Inductor(Park_t inductance)
 {
-    Leso_Ld           = inductance.d <= 0.001F ? 0.001F : inductance.d;
-    Leso_Lq           = inductance.q <= 0.001F ? 0.001F : inductance.q;
-    Leso_InvLd        = 1.0F / Leso_Ld;
-    Leso_InvLq        = 1.0F / Leso_Lq;
+    Leso_Ld    = inductance.d <= 0.001F ? 0.001F : inductance.d;
+    Leso_Lq    = inductance.q <= 0.001F ? 0.001F : inductance.q;
+    Leso_InvLd = 1.0F / Leso_Ld;
+    Leso_InvLq = 1.0F / Leso_Lq;
     // float  leso_Ld    = inductance.d <= 0.001F ? 0.001F : inductance.d;
     // float  leso_Lq    = inductance.q <= 0.001F ? 0.001F : inductance.q;
     // float  leso_InvLd = 1.0F / leso_Ld;
     // float  leso_InvLq = 1.0F / leso_Lq;
-    Park_t Idq        = ParkTransform(Leso_Current, Leso_Theta);
-    Idq.d             = Idq.d <= 0.5F ? 0.5F : Idq.d;
+    Park_t Idq = ParkTransform(Leso_Current, Leso_Theta);
+    Idq.d      = Idq.d <= 0.5F ? 0.5F : Idq.d;
     // float temp        = (leso_Ld - leso_Lq) / leso_Lq * Idq.d;
     // SQRT(temp, &Leso_Factor);
     // if (Leso_Factor < 1.4F)
@@ -253,8 +254,6 @@ void Leso_Update_EmfEstA(void)
 
     Buffer_Put(Leso_CurEst.a, 5);
     Buffer_Put(Leso_Current.a, 6);
-
-
 }
 
 void Leso_Update_EmfEstB(void)
@@ -323,6 +322,7 @@ static inline float calculate_error(Clark_t emf, float angle)
     errorAlpha = -emf.a * cos_leso;
     errorBeta  = emf.b * sin_leso;
     angleErr   = errorAlpha - errorBeta;
+    angleErr *= Leso_We >= 0 ? 1.0F : -1.0F;
 
     float norm = 0.0F;
     SQRT(emf.a * emf.a + emf.b * emf.b, &norm);
