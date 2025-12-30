@@ -1,29 +1,29 @@
 #include "foc.h"
 #include "buffer.h"
 #include "leso.h"
+#include "parameters.h"
 #include "pid.h"
 #include "signal.h"
 #include "stdint.h"
 #include "transformation.h"
-#include "parameters.h"
 
 #include "MTPA.h"
 #include "identification.h"
 
-static FocMode_t Foc_Mode            = IDLE;   // 当前FOC模式
-static bool      Foc_Reset           = false;  // FOC复位标志
-static float     Foc_Current_Ts      = 0.0F;   // 电流环采样周期
-static float     Foc_Current_Freq    = 0.0F;   // 电流环频率
-static uint16_t  Foc_Speed_Prescaler = 0U;     // 电流环分频数
-static float     Foc_Speed_Ts        = 0.0F;   // 转速环采样周期
-static float     Foc_Speed_Freq      = 0.0F;   // 转速环频率
-static float     Foc_Speed_Ref       = 0.0F;   // 参考速度
-static float     Foc_Speed_Fdbk      = 0.0F;   // 实际转速反馈
-static float     Foc_Theta           = 0.0F;
-static float     Foc_BusVoltage      = 0.0F;
-static float     Foc_BusVoltage_Inv  = 0.0F;
-static float     Foc_Speed_Ramp      = 0.0F;  // 实际指令转速
-static volatile bool  Foc_Sweep  = true;  // FOC扫频标志
+static FocMode_t     Foc_Mode            = IDLE;   // 当前FOC模式
+static bool          Foc_Reset           = false;  // FOC复位标志
+static float         Foc_Current_Ts      = 0.0F;   // 电流环采样周期
+static float         Foc_Current_Freq    = 0.0F;   // 电流环频率
+static uint16_t      Foc_Speed_Prescaler = 0U;     // 电流环分频数
+static float         Foc_Speed_Ts        = 0.0F;   // 转速环采样周期
+static float         Foc_Speed_Freq      = 0.0F;   // 转速环频率
+static float         Foc_Speed_Ref       = 0.0F;   // 参考速度
+static float         Foc_Speed_Fdbk      = 0.0F;   // 实际转速反馈
+static float         Foc_Theta           = 0.0F;
+static float         Foc_BusVoltage      = 0.0F;
+static float         Foc_BusVoltage_Inv  = 0.0F;
+static float         Foc_Speed_Ramp      = 0.0F;  // 实际指令转速
+static volatile bool Foc_Sweep           = true;  // FOC扫频标志
 
 static VF_Parameter_t  Foc_VfParam            = {0};
 static IF_Parameter_t  Foc_IfParam            = {0};
@@ -511,7 +511,7 @@ static inline Park_t Foc_Update_SpeedMode(bool reset)
 
     Foc_Idq_Fdbk = ParkTransform(Foc_Iclark_Fdbk, Foc_Theta);
 
-    Park_t output       = {0};
+    Park_t output = {0};
     // 更新转速环
     Foc_Idq_Ref
         = Foc_Update_SpeedLoop(Foc_Speed_Ref, Foc_Speed_Fdbk, reset);
@@ -519,7 +519,8 @@ static inline Park_t Foc_Update_SpeedMode(bool reset)
     output = Foc_Update_CurrentLoop(Foc_Idq_Ref, Foc_Idq_Fdbk, reset);
 
     if ((fabsf(Foc_Speed_Fdbk - Foc_Speed_Ramp)
-         > Foc_Pi_Tuner.Tune_Threshold)
+             > Foc_Pi_Tuner.Tune_Threshold
+         && fabsf(Foc_Speed_Ramp) > 700.0F)
         && Foc_Pi_Tuner.Tuned == false)
     {
         Foc_Pid_Speed_Handler.Kp
@@ -551,10 +552,7 @@ static inline Park_t Foc_Update_SpeedMode(bool reset)
         output.q = -PID_CURRENT_Q_LOOP_MAX_OUTPUT;
     }
 
-    Buffer_Put(output.q, 5);
-    Buffer_Put(Foc_Idq_Fdbk.q, 6);
-    Buffer_Put(Comp.value, 7);
-
+    Buffer_Put(Foc_Idq_Fdbk.q, 9);
     return output;
 }
 

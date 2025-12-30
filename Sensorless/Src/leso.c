@@ -5,6 +5,7 @@
 #include "pid.h"
 #include "theta_calc.h"
 #include "transformation.h"
+#include "buffer.h"
 
 #define SQRT(x, y) arm_sqrt_f32(x, y)
 
@@ -250,8 +251,8 @@ void Leso_Update_EmfEstA(void)
 
     Leso_EmfEst.a = -Leso_Lq * leso_f1a;
 
-    // Buffer_Put(Leso_CurEst.a, 5);
-    // Buffer_Put(Leso_Current.a, 6);
+    Buffer_Put(Leso_CurEst.a, 5);
+    Buffer_Put(Leso_Current.a, 6);
 
 
 }
@@ -280,8 +281,8 @@ void Leso_Update_EmfEstB(void)
 
     Leso_EmfEst.b = -Leso_Lq * leso_f1b;
 
-    // Buffer_Put(Leso_CurEst.b, 7);
-    // Buffer_Put(Leso_Current.b, 8);
+    Buffer_Put(Leso_CurEst.b, 7);
+    Buffer_Put(Leso_Current.b, 8);
 }
 
 // static inline float compensate_theta(float theta, float omega) {
