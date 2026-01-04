@@ -38,8 +38,10 @@ static PID_Handler_t   Foc_Pid_CurQ_Handler   = {0};
 static RampGenerator_t Foc_Ramp_Speed_Handler = {0};
 static SawtoothWave_t  Foc_Sawtooth_Handler   = {0};
 
-static PI_Tuner_t Foc_Pi_Tuner
-    = {.Tune_Ratio = 5.0F, .Tune_Threshold = 50.0F, .Tuned = false};
+static PI_Tuner_t Foc_Pi_Tuner = {.Tune_Ratio     = 5.0F,
+                                  .Tune_Threshold = 100.0F,
+                                  .Hold_Cycles    = 0,
+                                  .Tuned          = false};
 
 FluxExperiment_t Experiment = {0};
 
@@ -518,28 +520,29 @@ static inline Park_t Foc_Update_SpeedMode(bool reset)
 
     output = Foc_Update_CurrentLoop(Foc_Idq_Ref, Foc_Idq_Fdbk, reset);
 
-    if ((fabsf(Foc_Speed_Fdbk - Foc_Speed_Ramp)
-             > Foc_Pi_Tuner.Tune_Threshold
-         && fabsf(Foc_Speed_Ramp) > 700.0F)
-        && Foc_Pi_Tuner.Tuned == false)
+    if (Foc_Pi_Tuner.Hold_Cycles > 0)
     {
-        Foc_Pid_Speed_Handler.Kp
-            = Foc_Pi_Tuner.Tune_Ratio * Foc_Pid_Speed_Handler.Kp;
-        Foc_Pid_Speed_Handler.Ki
-            = Foc_Pi_Tuner.Tune_Ratio * Foc_Pid_Speed_Handler.Ki;
+        Foc_Pi_Tuner.Hold_Cycles--;
+    }
+    else if (!Foc_Pi_Tuner.Tuned
+             && fabsf(Foc_Speed_Fdbk - Foc_Speed_Ramp)
+                    > Foc_Pi_Tuner.Tune_Threshold
+             && fabsf(Foc_Speed_Ramp) > 700.0f)
+    {
+        Foc_Pid_Speed_Handler.Kp *= Foc_Pi_Tuner.Tune_Ratio;
+        Foc_Pid_Speed_Handler.Ki *= Foc_Pi_Tuner.Tune_Ratio;
         Foc_Pi_Tuner.Tuned = true;
     }
-    if (Foc_Pi_Tuner.Tuned)
+
+    if (Foc_Pi_Tuner.Tuned
+        && fabsf(Foc_Speed_Fdbk - Foc_Speed_Ramp)
+               < Foc_Pi_Tuner.Tune_Threshold)
     {
-        if (fabsf(Foc_Speed_Fdbk - Foc_Speed_Ramp)
-            < Foc_Pi_Tuner.Tune_Threshold)
-        {
-            Foc_Pid_Speed_Handler.Kp
-                = Foc_Pid_Speed_Handler.Kp / Foc_Pi_Tuner.Tune_Ratio;
-            Foc_Pid_Speed_Handler.Ki
-                = Foc_Pid_Speed_Handler.Ki / Foc_Pi_Tuner.Tune_Ratio;
-            Foc_Pi_Tuner.Tuned = false;
-        }
+        Foc_Pid_Speed_Handler.Kp /= Foc_Pi_Tuner.Tune_Ratio;
+        Foc_Pid_Speed_Handler.Ki /= Foc_Pi_Tuner.Tune_Ratio;
+
+        Foc_Pi_Tuner.Tuned       = false;
+        Foc_Pi_Tuner.Hold_Cycles = 100;
     }
 
     // 更新电流环

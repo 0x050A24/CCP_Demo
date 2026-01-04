@@ -35,6 +35,7 @@ typedef struct
 typedef struct{
     float Tune_Ratio;
     float Tune_Threshold;
+    uint16_t Hold_Cycles;
     bool Tuned;
 } PI_Tuner_t;
 

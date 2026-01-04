@@ -4,7 +4,7 @@
 #include "math.h"
 #include "stdint.h"
 
-/* Estimate_Rs 与 SquareWaveGenerater 原型（你已有的实现） */
+/* Estimate_Rs 与 SquareWaveGenerater */
 static inline bool Estimate_Rs(float Current, float* Voltage_out, float* Rs);
 static LLS_Result_t Single_Axis_LLS(FluxExperiment_t* exp, int exponent);
 static void process_cycle_for_dq_adq(FluxExperiment_t* exp, int s);
